@@ -9,8 +9,6 @@ use Template;
 
 /**
  * List Controller Class
- *
- * @package Admin
  */
 class ListController extends ControllerAction
 {
@@ -212,14 +210,14 @@ class ListController extends ControllerAction
         $widget->bindToController();
 
         // Prep the optional toolbar widget
-        if (isset($modelConfig['toolbar']) AND isset($this->controller->widgets['toolbar'])) {
+        if (isset($this->controller->widgets['toolbar']) AND (isset($listConfig['toolbar']) OR isset($modelConfig['toolbar']))) {
             $this->toolbarWidget = $this->controller->widgets['toolbar'];
             if ($this->toolbarWidget instanceof \Admin\Widgets\Toolbar)
-                $this->toolbarWidget->reInitialize($modelConfig['toolbar']);
+                $this->toolbarWidget->reInitialize($listConfig['toolbar'] ?? $modelConfig['toolbar']);
         }
 
         // Prep the optional filter widget
-        if (isset($modelConfig['filter'])) {
+        if (array_get($modelConfig, 'filter')) {
             $filterConfig = $modelConfig['filter'];
             $filterConfig['alias'] = "{$widget->alias}_filter";
             $filterWidget = $this->makeWidget('Admin\Widgets\Filter', $filterConfig);
@@ -241,7 +239,7 @@ class ListController extends ControllerAction
                 $widget->setSearchTerm($searchWidget->getActiveTerm());
             }
 
-            $filterWidget->bindEvent('filter.submit', function () use ($widget, $filterWidget) {
+            $filterWidget->bindEvent('filter.submit', function () use ($widget) {
                 return $widget->onRefresh();
             });
 

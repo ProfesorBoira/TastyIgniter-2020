@@ -1,9 +1,13 @@
-<?php namespace System\Controllers;
+<?php
+
+namespace System\Controllers;
 
 use AdminMenu;
 use ApplicationException;
 use Exception;
 use Flash;
+use Main\Classes\ThemeManager;
+use System\Classes\ExtensionManager;
 use System\Classes\UpdateManager;
 use System\Models\Extensions_model;
 use System\Models\Themes_model;
@@ -33,7 +37,7 @@ class Updates extends \Admin\Classes\AdminController
         Template::setTitle($pageTitle);
         Template::setHeading($pageTitle);
 
-        Template::setButton(sprintf(lang('system::lang.updates.button_browse'), 'extensions'), ['class' => 'btn btn-default', 'href' => admin_url($this->browseUrl.'/extensions')]);
+        Template::setButton(sprintf(lang('system::lang.updates.button_browse'), 'extensions'), ['class' => 'btn btn-primary', 'href' => admin_url($this->browseUrl.'/extensions')]);
         Template::setButton(lang('system::lang.updates.button_check'), ['class' => 'btn btn-success', 'data-request' => 'onCheckUpdates']);
         Template::setButton(lang('system::lang.updates.button_carte'), ['class' => 'btn btn-default pull-right', 'role' => 'button', 'data-target' => '#carte-modal', 'data-toggle' => 'modal']);
 
@@ -58,7 +62,7 @@ class Updates extends \Admin\Classes\AdminController
 
             if (!empty($updates['items']) OR !empty($updates['ignoredItems'])) {
                 Template::setButton(lang('system::lang.updates.button_update'), [
-                    'class' => 'btn btn-primary pull-left mr-2',
+                    'class' => 'btn btn-primary pull-left mr-2 ml-0',
                     'id' => 'apply-updates', 'role' => 'button',
                 ]);
             }
@@ -82,7 +86,7 @@ class Updates extends \Admin\Classes\AdminController
         $buttonType = ($itemType == 'extensions') ? 'themes' : 'extensions';
         $buttonTitle = lang('system::lang.updates.text_tab_title_'.$buttonType);
 
-        Template::setButton(sprintf(lang('system::lang.updates.button_browse'), $buttonTitle), ['class' => 'btn btn-default', 'href' => admin_url($this->browseUrl.'/'.$buttonType)]);
+        Template::setButton(sprintf(lang('system::lang.updates.button_browse'), $buttonTitle), ['class' => 'btn btn-primary', 'href' => admin_url($this->browseUrl.'/'.$buttonType)]);
         Template::setButton(lang('system::lang.updates.button_updates'), ['class' => 'btn btn-success', 'href' => admin_url($this->checkUrl)]);
         Template::setButton(lang('system::lang.updates.button_carte'), ['class' => 'btn btn-default pull-right', 'role' => 'button', 'data-target' => '#carte-modal', 'data-toggle' => 'modal']);
 
@@ -101,7 +105,6 @@ class Updates extends \Admin\Classes\AdminController
         $json = [];
 
         if ($filter = input('filter') AND is_array($filter)) {
-
             $itemType = $filter['type'] ?? 'extension';
             $searchQuery = isset($filter['search']) ? strtolower($filter['search']) : '';
 
@@ -145,7 +148,7 @@ class Updates extends \Admin\Classes\AdminController
     {
         $items = post('items');
         if (!$items OR count($items) < 1)
-            throw new ApplicationException('Select item(s) to ignore.');
+            throw new ApplicationException(lang('system::lang.updates.alert_item_to_ignore'));
 
         $updateManager = UpdateManager::instance();
 
@@ -195,7 +198,7 @@ class Updates extends \Admin\Classes\AdminController
     {
         $carteKey = post('carte_key');
         if (!strlen($carteKey))
-            throw new ApplicationException('No carte key specified.');
+            throw new ApplicationException(lang('system::lang.updates.alert_no_carte_key'));
 
         $response = UpdateManager::instance()->applySiteDetail($carteKey);
 
@@ -215,7 +218,7 @@ class Updates extends \Admin\Classes\AdminController
 //            throw new ApplicationException(lang('system::lang.missing.carte_key'));
 
         if (!count($items))
-            throw new ApplicationException('No item(s) specified.');
+            throw new ApplicationException(lang('system::lang.updates.alert_no_items'));
 
         $this->validateItems();
 
@@ -239,7 +242,6 @@ class Updates extends \Admin\Classes\AdminController
             return $processSteps;
 
         foreach (['download', 'extract', 'complete'] as $step) {
-
             // Silly way to sort the process
             $applySteps = [
                 'core' => [],
@@ -323,11 +325,11 @@ class Updates extends \Admin\Classes\AdminController
                 break;
 
             case 'extractExtension':
-                $response = $updateManager->extractFile($meta['code'], 'extensions/');
+                $response = $updateManager->extractFile($meta['code'], extension_path('/'));
                 if ($response) $json['result'] = 'success';
                 break;
             case 'extractTheme':
-                $response = $updateManager->extractFile($meta['code'], 'themes/');
+                $response = $updateManager->extractFile($meta['code'], theme_path('/'));
                 if ($response) $json['result'] = 'success';
                 break;
 
@@ -354,7 +356,10 @@ class Updates extends \Admin\Classes\AdminController
                     $updateManager->setCoreVersion($item['version'], $item['hash']);
                     break;
                 case 'extension':
-                    Extensions_model::install($item['code'], $item['version']);
+                    ExtensionManager::instance()->installExtension($item['code'], $item['version']);
+                    break;
+                case 'theme':
+                    ThemeManager::instance()->installTheme($item['code'], $item['version']);
                     break;
             }
         }

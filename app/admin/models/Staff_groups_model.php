@@ -1,12 +1,11 @@
-<?php namespace Admin\Models;
+<?php
 
-use Carbon\Carbon;
+namespace Admin\Models;
+
 use Model;
 
 /**
  * StaffGroups Model Class
- *
- * @package Admin
  */
 class Staff_groups_model extends Model
 {
@@ -33,7 +32,7 @@ class Staff_groups_model extends Model
         ],
     ];
 
-    public $casts = [
+    protected $casts = [
         'auto_assign' => 'boolean',
         'auto_assign_mode' => 'integer',
         'auto_assign_limit' => 'integer',
@@ -48,11 +47,11 @@ class Staff_groups_model extends Model
     public static function listDropdownOptions()
     {
         return self::select('staff_group_id', 'staff_group_name', 'description')
-                   ->get()
-                   ->keyBy('staff_group_id')
-                   ->map(function ($model) {
-                       return [$model->staff_group_name, $model->description];
-                   });
+            ->get()
+            ->keyBy('staff_group_id')
+            ->map(function ($model) {
+                return [$model->staff_group_name, $model->description];
+            });
     }
 
     public function getStaffCountAttribute($value)
@@ -63,6 +62,13 @@ class Staff_groups_model extends Model
     //
     // Assignment
     //
+
+    public static function syncAutoAssignStatus()
+    {
+        params()->set('allocator_is_enabled',
+            self::query()->where('auto_assign', 1)->exists()
+        );
+    }
 
     public function getAutoAssignLimitAttribute($value)
     {
@@ -94,7 +100,7 @@ class Staff_groups_model extends Model
     {
         $query = $this->assignable_logs()->newQuery();
 
-        $useLoadBalance = ($this->auto_assign_mode == self::AUTO_ASSIGN_LOAD_BALANCED);
+        $useLoadBalance = $this->auto_assign_mode == self::AUTO_ASSIGN_LOAD_BALANCED;
 
         $useLoadBalance
             ? $query->applyLoadBalancedScope($this->auto_assign_limit)
@@ -102,11 +108,8 @@ class Staff_groups_model extends Model
 
         $logs = $query->pluck('assign_value', 'assignee_id');
 
-        $assignees = $this->listAssignees()->map(function (Staffs_model $model) use ($useLoadBalance, $logs) {
-            $assignValue = $useLoadBalance ?
-                0 : Carbon::now()->addYear()->toDateTimeString();
-
-            $model->assign_value = $logs[$model->getKey()] ?? $assignValue;
+        $assignees = $this->listAssignees()->map(function (Staffs_model $model) use ($logs) {
+            $model->assign_value = $logs[$model->getKey()] ?? 0;
 
             return $model;
         });

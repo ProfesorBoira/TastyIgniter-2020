@@ -23,19 +23,19 @@ class Location extends Manager
         if (!$this->getAuth()->isLogged())
             return null;
 
-        $model = null;
         if ($this->isSingleMode()) {
-            $model = $this->getById(params('default_location_id'));
+            $id = params('default_location_id');
         }
         else {
             $id = $this->getSession('id');
-            if (!$id AND $this->hasRestriction())
+            if (!$id AND $this->hasOneLocation() AND !$this->getAuth()->isSuperUser())
                 $id = $this->getDefaultLocation();
 
-            if ($id) $model = $this->getById($id);
+            if ($id AND !$this->isAttachedToAuth($id))
+                $id = $this->getDefaultLocation();
         }
 
-        if ($model)
+        if ($id AND $model = $this->getById($id))
             $this->setCurrent($model);
 
         return $this->model;
@@ -72,30 +72,64 @@ class Location extends Manager
         return optional($this->getLocation())->getKey();
     }
 
+    public function getAll()
+    {
+        if ($this->getAuth()->isSuperUser())
+            return null;
+
+        return $this->getLocations()->pluck('location_id')->all();
+    }
+
+    public function getIdOrAll()
+    {
+        return $this->check() ? [$this->getId()] : $this->getAll();
+    }
+
     public function getLocation()
     {
-        return $this->model;
+        return $this->current();
     }
 
     public function listLocations()
     {
-        $locations = null;
-        if (!$this->getAuth()->isSuperUser()) {
-            $locations = $this->getAuth()->locations()->pluck(
-                'location_name', 'location_id'
-            );
-        }
+        if ($this->getAuth()->isSuperUser())
+            return $this->createLocationModel()->getDropdownOptions();
 
-        return ($locations AND $locations->isNotEmpty()) ?
-            $locations : $this->createLocationModel()->getDropdownOptions();
+        return $this->getLocations()->pluck('location_name', 'location_id');
     }
 
     public function getDefaultLocation()
     {
-        if (!$staffLocation = $this->getAuth()->locations()->first())
+        if (!$staffLocation = $this->getLocations()->first())
             return null;
 
         return $staffLocation->getKey();
+    }
+
+    public function hasOneLocation()
+    {
+        if ($this->isSingleMode())
+            return TRUE;
+
+        return $this->getLocations()->count() === 1;
+    }
+
+    public function hasLocations()
+    {
+        if ($this->isSingleMode())
+            return FALSE;
+
+        if ($this->getAuth()->isSuperUser())
+            return TRUE;
+
+        return $this->getLocations()->count() > 1;
+    }
+
+    protected function getLocations()
+    {
+        return $this->getAuth()
+            ->locations()
+            ->where('location_status', TRUE);
     }
 
     /**
@@ -104,5 +138,15 @@ class Location extends Manager
     protected function getAuth()
     {
         return app('admin.auth');
+    }
+
+    protected function isAttachedToAuth($id)
+    {
+        if ($this->getAuth()->isSuperUser())
+            return TRUE;
+
+        return $this->getLocations()->contains(function ($model) use ($id) {
+            return $model->location_id === $id;
+        });
     }
 }

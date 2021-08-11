@@ -1,11 +1,12 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Carbon\Carbon;
 use Model;
 
 /**
  * Menu Specials Model Class
- * @package Admin
  */
 class Menus_specials_model extends Model
 {
@@ -16,11 +17,15 @@ class Menus_specials_model extends Model
 
     protected $primaryKey = 'special_id';
 
-    protected $fillable = ['menu_id', 'start_date', 'end_date', 'special_price', 'special_status', 'type',
-        'validity', 'recurring_every', 'recurring_from', 'recurring_to'];
+    protected $fillable = [
+        'menu_id', 'start_date',
+        'end_date', 'special_price',
+        'special_status', 'type',
+        'validity', 'recurring_every',
+        'recurring_from', 'recurring_to',
+    ];
 
-
-    public $casts = [
+    protected $casts = [
         'menu_id' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
@@ -41,7 +46,7 @@ class Menus_specials_model extends Model
         if ($this->isRecurring() OR !$this->end_date)
             return null;
 
-        return mdate(setting('date_format'), $this->end_date->getTimestamp());
+        return $this->end_date->format(lang('system::lang.php.date_time_format'));
     }
 
     public function getTypeAttribute($value)
@@ -85,7 +90,7 @@ class Menus_specials_model extends Model
             case 'period':
                 return !$now->between($this->start_date, $this->end_date);
             case 'recurring':
-                if (!in_array($now->format('w'), $this->recurring_every))
+                if (!in_array($now->format('w'), $this->recurring_every ?? []))
                     return TRUE;
 
                 $start = $now->copy()->setTimeFromTimeString($this->recurring_from);

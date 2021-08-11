@@ -27,7 +27,8 @@
         templates: {
             leftArrow: '<i class="fa fa-long-arrow-left"></i>',
             rightArrow: '<i class="fa fa-long-arrow-right"></i>'
-        }
+        },
+        language: 'en',
     }
 
     DatePicker.prototype.bindPicker = function () {
@@ -35,7 +36,7 @@
         this.$dataLocker = this.$el.parent('div').find('[data-datepicker-value]')
 
         if (this.options.mode === 'datetime') {
-            this.picker = this.$el.datetimepicker({
+            this.$el.datetimepicker({
                 format: this.options.format,
                 icons: {
                     time: "fa fa-clock-o",
@@ -45,8 +46,9 @@
                 }
             });
 
-            this.$el.on('dp.change', $.proxy(this.onSelectDateTimePicker, this))
+            this.$el.on('change.datetimepicker', $.proxy(this.onSelectDateTimePicker, this))
         } else {
+            this.options.language = this.options.language.replace('_', '-').split('-').shift();
             this.picker = this.$el.datepicker(this.options);
             this.parsePickerValue()
             this.$el.on('changeDate', $.proxy(this.onSelectDatePicker, this))
@@ -71,6 +73,8 @@
         var lockerValue = event.date.format('YYYY-MM-DD HH:mm:ss')
 
         this.$dataLocker.val(lockerValue)
+
+        this.$el.datetimepicker('hide')
     }
 
     //

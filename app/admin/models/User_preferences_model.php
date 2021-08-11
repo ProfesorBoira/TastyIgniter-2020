@@ -1,4 +1,6 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use AdminAuth;
 use Exception;
@@ -13,7 +15,7 @@ class User_preferences_model extends Model
 
     public $timestamps = FALSE;
 
-    public $casts = [
+    protected $casts = [
         'user_id' => 'integer',
         'value' => 'json',
     ];
@@ -42,7 +44,7 @@ class User_preferences_model extends Model
     {
         $user = AdminAuth::getUser();
         if (!$user) {
-            throw new Exception('User is not logged in');
+            throw new Exception(lang('admin::lang.alert_user_not_logged'));
         }
 
         return $user;

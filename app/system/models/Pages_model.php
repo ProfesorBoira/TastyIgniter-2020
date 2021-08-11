@@ -7,8 +7,6 @@ use Model;
 
 /**
  * Pages Model Class
- *
- * @package Admin
  */
 class Pages_model extends Model
 {
@@ -35,7 +33,7 @@ class Pages_model extends Model
 
     protected $guarded = [];
 
-    public $casts = [
+    protected $casts = [
         'language_id' => 'integer',
         'metadata' => 'json',
         'status' => 'boolean',

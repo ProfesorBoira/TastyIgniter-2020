@@ -13,6 +13,7 @@ App::before(function () {
         // Register Assets Combiner routes
         Route::any(config('system.assetsCombinerUri', '_assets').'/{asset}', 'System\Classes\Controller@combineAssets');
 
-        Route::any('{slug}', 'System\Classes\Controller@run')->where('slug', '(.*)?');
+        Route::any('{slug}', 'System\Classes\Controller@run')
+            ->where('slug', '(.*)?');
     });
 });

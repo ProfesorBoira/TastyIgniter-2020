@@ -1,4 +1,6 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use Admin\Facades\AdminLocation;
 use Admin\Models\Locations_model;
@@ -31,11 +33,13 @@ class Locations extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'locations/edit/{location_id}',
             'redirectClose' => 'locations',
+            'redirectNew' => 'locations/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'locations/edit/{location_id}',
             'redirectClose' => 'locations',
+            'redirectNew' => 'locations/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -76,7 +80,7 @@ class Locations extends \Admin\Classes\AdminController
     {
         $defaultId = post('default');
 
-        if (Locations_model::updateDefault(['location_id' => $defaultId])) {
+        if (Locations_model::updateDefault($defaultId)) {
             flash()->success(sprintf(lang('admin::lang.alert_success'), lang('admin::lang.locations.alert_set_default')));
         }
 
@@ -86,7 +90,7 @@ class Locations extends \Admin\Classes\AdminController
     public function settings_onSave($context = null)
     {
         try {
-            $this->asExtension('FormController')->edit_onSave('edit', params('default_location_id'));
+            $this->asExtension('FormController')->edit_onSave('edit', $this->getLocationId());
 
             return $this->refresh();
         }
@@ -112,10 +116,16 @@ class Locations extends \Admin\Classes\AdminController
         return $attributes;
     }
 
+    public function listExtendQuery($query)
+    {
+        if (!is_null($ids = AdminLocation::getAll()))
+            $query->whereIn('location_id', $ids);
+    }
+
     public function formExtendQuery($query)
     {
-        if ($locationId = $this->getLocationId())
-            $query->where('location_id', $locationId);
+        if (!is_null($ids = AdminLocation::getAll()))
+            $query->whereIn('location_id', $ids);
     }
 
     public function formAfterSave($model)
@@ -124,5 +134,15 @@ class Locations extends \Admin\Classes\AdminController
             if ($logs = Geocoder::getLogs())
                 flash()->error(implode(PHP_EOL, $logs))->important();
         }
+    }
+
+    public function mapViewCenterCoords()
+    {
+        $model = $this->getFormModel();
+
+        return [
+            'lat' => $model->location_lat,
+            'lng' => $model->location_lng,
+        ];
     }
 }

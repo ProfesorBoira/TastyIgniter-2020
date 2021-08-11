@@ -1,10 +1,13 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Admin\Traits\Assignable;
 use Admin\Traits\HasInvoice;
 use Admin\Traits\Locationable;
 use Admin\Traits\LogsStatusHistory;
 use Admin\Traits\ManagesOrderItems;
+use Carbon\Carbon;
 use Event;
 use Igniter\Flame\Auth\Models\User;
 use Main\Classes\MainController;
@@ -14,8 +17,6 @@ use System\Traits\SendsMailTemplate;
 
 /**
  * Orders Model Class
- *
- * @package Admin
  */
 class Orders_model extends Model
 {
@@ -34,8 +35,6 @@ class Orders_model extends Model
 
     const COLLECTION = 'collection';
 
-    protected static $orderTypes = [1 => self::DELIVERY, 2 => self::COLLECTION];
-
     /**
      * @var string The database table name
      */
@@ -48,16 +47,18 @@ class Orders_model extends Model
 
     protected $timeFormat = 'H:i';
 
-    public $guarded = ['ip_address', 'user_agent', 'hash'];
+    public $guarded = ['ip_address', 'user_agent', 'hash', 'total_items', 'order_total'];
+
+    protected $hidden = ['cart'];
 
     /**
      * @var array The model table column to convert to dates on insert/update
      */
     public $timestamps = TRUE;
 
-    public $appends = ['customer_name', 'order_type_name'];
+    public $appends = ['customer_name', 'order_type_name', 'order_date_time', 'formatted_address'];
 
-    public $casts = [
+    protected $casts = [
         'customer_id' => 'integer',
         'location_id' => 'integer',
         'address_id' => 'integer',
@@ -68,6 +69,7 @@ class Orders_model extends Model
         'order_total' => 'float',
         'notify' => 'boolean',
         'processed' => 'boolean',
+        'order_time_is_asap' => 'boolean',
     ];
 
     public $relation = [
@@ -79,10 +81,6 @@ class Orders_model extends Model
         ],
         'hasMany' => [
             'payment_logs' => 'Admin\Models\Payment_logs_model',
-            'coupon_history' => 'Admin\Models\Coupons_history_model',
-        ],
-        'morphMany' => [
-            'review' => ['Admin\Models\Reviews_model'],
         ],
     ];
 
@@ -123,21 +121,25 @@ class Orders_model extends Model
             'customer' => null,
             'location' => null,
             'sort' => 'address_id desc',
+            'search' => '',
+            'dateTimeFilter' => [],
         ], $options));
+
+        $searchableFields = ['order_id', 'first_name', 'last_name', 'email', 'telephone'];
 
         $query->where('status_id', '>=', 1);
 
         if ($location instanceof Locations_model) {
             $query->where('location_id', $location->getKey());
         }
-        else if (strlen($location)) {
+        elseif (strlen($location)) {
             $query->where('location_id', $location);
         }
 
         if ($customer instanceof User) {
             $query->where('customer_id', $customer->getKey());
         }
-        else if (strlen($customer)) {
+        elseif (strlen($customer)) {
             $query->where('customer_id', $customer);
         }
 
@@ -156,7 +158,23 @@ class Orders_model extends Model
             }
         }
 
+        $search = trim($search);
+        if (strlen($search)) {
+            $query->search($search, $searchableFields);
+        }
+
+        if ($startDateTime = array_get($dateTimeFilter, 'orderDateTime.startAt', FALSE) AND $endDateTime = array_get($dateTimeFilter, 'orderDateTime.endAt', FALSE)) {
+            $query = $this->scopeWhereBetweenOrderDateTime($query, Carbon::parse($startDateTime)->format('Y-m-d H:i:s'), Carbon::parse($endDateTime)->format('Y-m-d H:i:s'));
+        }
+
         return $query->paginate($pageLimit, $page);
+    }
+
+    public function scopeWhereBetweenOrderDateTime($query, $start, $end)
+    {
+        $query->whereRaw('ADDTIME(order_date, order_time) between ? and ?', [$start, $end]);
+
+        return $query;
     }
 
     //
@@ -168,17 +186,24 @@ class Orders_model extends Model
         return $this->first_name.' '.$this->last_name;
     }
 
-    public function getOrderTypeAttribute($value)
-    {
-        if (isset(self::$orderTypes[$value]))
-            return self::$orderTypes[$value];
-
-        return $value;
-    }
-
     public function getOrderTypeNameAttribute()
     {
-        return lang('admin::lang.orders.text_'.$this->order_type);
+        if (!$this->location)
+            return $this->order_type;
+
+        return optional(
+            $this->location->availableOrderTypes()->get($this->order_type)
+        )->getLabel();
+    }
+
+    public function getOrderDatetimeAttribute($value)
+    {
+        if (!isset($this->attributes['order_date'])
+            AND !isset($this->attributes['order_time'])
+        ) return null;
+
+        return make_carbon($this->attributes['order_date'])
+            ->setTimeFromTimeString($this->attributes['order_time']);
     }
 
     public function getFormattedAddressAttribute($value)
@@ -244,14 +269,14 @@ class Orders_model extends Model
         return $this->processed;
     }
 
-    public function logPaymentAttempt($message, $status, $request = [], $response = [])
+    public function logPaymentAttempt($message, $isSuccess, $request = [], $response = [], $isRefundable = FALSE)
     {
-        Payment_logs_model::logAttempt($this, $message, $status, $request, $response);
+        Payment_logs_model::logAttempt($this, $message, $isSuccess, $request, $response, $isRefundable);
     }
 
     public function updateOrderStatus($id, $options = [])
     {
-        $id = $id ?? $this->status_id ?? setting('default_order_status');
+        $id = $id ?: $this->status_id ?: setting('default_order_status');
 
         return $this->addStatusHistory(
             Statuses_model::find($id), $options
@@ -325,26 +350,29 @@ class Orders_model extends Model
         $data['telephone'] = $model->telephone;
         $data['order_comment'] = $model->comment;
 
-        $data['order_type'] = $model->order_type;
-        $data['order_time'] = $model->order_time.' '.$model->order_date->format('d M');
-        $data['order_date'] = $model->date_added->format('d M y');
+        $data['order_type'] = $model->order_type_name;
+        $data['order_time'] = Carbon::createFromTimeString($model->order_time)->format(lang('system::lang.php.time_format'));
+        $data['order_date'] = $model->order_date->format(lang('system::lang.php.date_format'));
+        $data['order_added'] = $model->date_added->format(lang('system::lang.php.date_time_format'));
 
         $data['invoice_id'] = $model->invoice_number;
         $data['invoice_number'] = $model->invoice_number;
-        $data['invoice_date'] = $model->invoice_date ? $model->invoice_date->format('d M y') : null;
+        $data['invoice_date'] = $model->invoice_date ? $model->invoice_date->format(lang('system::lang.php.date_format')) : null;
 
         $data['order_payment'] = ($model->payment_method)
             ? $model->payment_method->name
             : lang('admin::lang.orders.text_no_payment');
 
         $data['order_menus'] = [];
-        $menus = $model->getOrderMenus();
-        $menuOptions = $model->getOrderMenuOptions();
+        $menus = $model->getOrderMenusWithOptions();
         foreach ($menus as $menu) {
             $optionData = [];
-            if ($menuItemOptions = $menuOptions->get($menu->order_menu_id)) {
+            foreach ($menu->menu_options->groupBy('order_option_group') as $menuItemOptionGroupName => $menuItemOptions) {
+                $optionData[] = $menuItemOptionGroupName;
                 foreach ($menuItemOptions as $menuItemOption) {
-                    $optionData[] = $menuItemOption->order_option_name
+                    $optionData[] = $menuItemOption->quantity
+                        .'&nbsp;'.lang('admin::lang.text_times').'&nbsp;'
+                        .$menuItemOption->order_option_name
                         .lang('admin::lang.text_equals')
                         .currency_format($menuItemOption->order_option_price);
                 }
@@ -380,9 +408,9 @@ class Orders_model extends Model
             $data['location_address'] = format_address($model->location->getAddress());
         }
 
-        $status = $model->status()->first();
-        $data['status_name'] = $status ? $status->status_name : null;
-        $data['status_comment'] = $status ? $status->status_comment : null;
+        $statusHistory = Status_history_model::applyRelated($model)->whereStatusIsLatest($model->status_id)->first();
+        $data['status_name'] = $statusHistory ? optional($statusHistory->status)->status_name : null;
+        $data['status_comment'] = $statusHistory ? $statusHistory->comment : null;
 
         $controller = MainController::getController() ?: new MainController;
         $data['order_view_url'] = $controller->pageUrl('account/order', [

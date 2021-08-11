@@ -12,7 +12,6 @@ use Response;
 
 /**
  * Media Manager widget.
- * @package Admin
  */
 class MediaManager extends BaseWidget
 {
@@ -572,7 +571,7 @@ class MediaManager extends BaseWidget
             if (!$this->validateFileName($fileName))
                 throw new ApplicationException(lang('main::lang.media_manager.alert_invalid_new_file_name'));
 
-            if (!$mediaLibrary->isAllowedExtension($extension))
+            if (!$mediaLibrary->isAllowedExtension($fileName))
                 throw new ApplicationException(lang('main::lang.media_manager.alert_extension_not_allowed'));
 
             if (!$uploadedFile->isValid())
@@ -643,7 +642,7 @@ class MediaManager extends BaseWidget
             $u++;
         }
 
-        return (number_format($size, 0)." ".$units[$u]);
+        return number_format($size, 0).' '.$units[$u];
     }
 
     protected function isFolderTreeNodeExpanded($node)

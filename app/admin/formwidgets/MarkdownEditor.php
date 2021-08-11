@@ -8,8 +8,6 @@ use Igniter\Flame\Mail\Markdown;
 /**
  * Code Editor
  * Renders a code editor field.
- *
- * @package Admin
  */
 class MarkdownEditor extends BaseFormWidget
 {
@@ -65,7 +63,7 @@ class MarkdownEditor extends BaseFormWidget
     public function onRefresh()
     {
         $value = post($this->formField->getName());
-        $previewHtml = (new Markdown)->parse($value);
+        $previewHtml = Markdown::parse($value)->toHtml();
 
         return [
             'preview' => $previewHtml,

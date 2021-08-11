@@ -90,6 +90,11 @@
             $button = $(event.target),
             $findValue = $('[data-find-value]', $button.closest('.media-finder'))
 
+        if ($.ti.mediaManager === undefined) {
+            $.ti.flashMessage({text: 'Media manager widget is not loaded', class:'danger'})
+            return
+        }
+
         new $.ti.mediaManager.modal({
             alias: 'mediamanager',
             selectMode: this.options.isMulti ? 'multi' : 'single',
@@ -110,10 +115,13 @@
                 items = self.extractItemData(items)
 
                 if (self.options.useAttachment) {
+                    $.ti.loadingIndicator.show()
                     $.request(self.options.alias+'::onAddAttachment', {
                         data: {items: items}
                     }).done(function (response) {
                         self.updateFinder($button, response)
+                    }).always(function () {
+                        $.ti.loadingIndicator.hide()
                     })
                 } else {
                     self.updateFinder($button, items)

@@ -1,11 +1,11 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Model;
 
 /**
  * Statuses Model Class
- *
- * @package Admin
  */
 class Statuses_model extends Model
 {
@@ -19,7 +19,7 @@ class Statuses_model extends Model
      */
     protected $primaryKey = 'status_id';
 
-    public $casts = [
+    protected $casts = [
         'notify_customer' => 'boolean',
     ];
 

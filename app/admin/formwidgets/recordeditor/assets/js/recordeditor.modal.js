@@ -46,22 +46,13 @@
     }
 
     RecordEditorModal.prototype.handleFormSetup = function (event, context) {
-        if (this.options.onFail !== undefined)
-            this.options.onFail.call(this, context)
+        if (this.options.onSubmit !== undefined)
+            this.options.onSubmit.call(this, context)
     }
 
-    RecordEditorModal.prototype.handleFormError = function (event, dataOrXhr, textStatus, jqXHR) {
-        $.ti.flashMessage({
-            container: '#modal-notification',
-            class: 'danger',
-            text: jqXHR.responseText,
-            interval: 0
-        })
-
+    RecordEditorModal.prototype.handleFormError = function (event, context, textStatus, jqXHR) {
         if (this.options.onFail !== undefined)
-            this.options.onFail.call(this, dataOrXhr, jqXHR)
-
-        event.preventDefault()
+            this.options.onFail.call(this, context, jqXHR)
     }
 
     RecordEditorModal.prototype.handleFormDone = function (event, data, textStatus, jqXHR) {
@@ -75,6 +66,9 @@
         var _event = jQuery.Event('recordEditorModalShown')
         $(window).trigger(_event, [this.$modalElement])
         if (_event.isDefaultPrevented()) return
+
+        if (this.options.onLoad !== undefined)
+            this.options.onLoad.call(this, data)
 
         this.$modalElement.find('form').on('ajaxSetup', $.proxy(this.handleFormSetup, this))
         this.$modalElement.find('form').on('ajaxError', $.proxy(this.handleFormError, this))
@@ -90,19 +84,22 @@
 
     RecordEditorModal.prototype.onModalShown = function (event) {
         var self = this,
-            handler = this.options.alias + '::onLoadRecord'
+            handler = this.options.handler ? this.options.handler : this.options.alias + '::onLoadRecord'
 
-        this.$modalElement = $(event.target)
+        self.$modalElement = $(event.target)
 
         $.request(handler, {
             data: {recordId: this.options.recordId},
         }).done($.proxy(this.onRecordLoaded, this)).fail(function () {
             self.$modalElement.modal('hide')
+        }).always(function () {
+            self.$modalElement.modal('handleUpdate')
         })
     }
 
     RecordEditorModal.DEFAULTS = {
         alias: undefined,
+        handler: undefined,
         recordId: undefined,
         onLoad: undefined,
         onSubmit: undefined,

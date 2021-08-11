@@ -1,10 +1,11 @@
-<?php namespace Admin\Classes;
+<?php
+
+namespace Admin\Classes;
 
 use Igniter\Flame\Auth\Manager;
 
 /**
  * Admin User authentication manager
- * @package Admin
  */
 class User extends Manager
 {
@@ -29,7 +30,7 @@ class User extends Manager
      */
     public function staff()
     {
-        return $this->user()->staff;
+        return optional($this->user())->staff;
     }
 
     /**
@@ -37,7 +38,7 @@ class User extends Manager
      */
     public function locations()
     {
-        return $this->user()->staff->locations;
+        return optional($this->staff())->locations;
     }
 
     //
@@ -46,7 +47,11 @@ class User extends Manager
 
     public function extendUserQuery($query)
     {
-        $query->with(['staff', 'staff.role', 'staff.groups', 'staff.locations']);
+        $query
+            ->with(['staff', 'staff.role', 'staff.groups', 'staff.locations'])
+            ->whereHas('staff', function ($query) {
+                $query->where('staff_status', TRUE);
+            });
     }
 
     //

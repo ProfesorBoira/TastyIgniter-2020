@@ -6,7 +6,6 @@ use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use System\Classes\ExtensionManager;
 use System\Classes\UpdateManager;
-use System\Models\Extensions_model;
 
 class ExtensionInstall extends Command
 {
@@ -50,11 +49,11 @@ class ExtensionInstall extends Command
         ]);
 
         $this->output->writeln(sprintf('<info>Extracting extension %s files</info>', $code));
-        $manager->extractFile($code, 'extensions/');
+        $manager->extractFile($code, extension_path('/'));
 
         $this->output->writeln(sprintf('<info>Installing %s extension</info>', $code));
         ExtensionManager::instance()->loadExtensions();
-        Extensions_model::install($code, $version);
+        ExtensionManager::instance()->installExtension($code, $version);
     }
 
     /**

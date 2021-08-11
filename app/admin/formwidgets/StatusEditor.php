@@ -1,5 +1,9 @@
-<?php namespace Admin\FormWidgets;
+<?php
 
+namespace Admin\FormWidgets;
+
+use Admin\ActivityTypes\AssigneeUpdated;
+use Admin\ActivityTypes\StatusUpdated;
 use Admin\Classes\BaseFormWidget;
 use Admin\Classes\FormField;
 use Admin\Facades\AdminAuth;
@@ -16,8 +20,6 @@ use Igniter\Flame\Exception\ValidationException;
 
 /**
  * Status Editor
- *
- * @package Admin
  */
 class StatusEditor extends BaseFormWidget
 {
@@ -83,7 +85,7 @@ class StatusEditor extends BaseFormWidget
 
     public $assigneeOrderPermission = 'Admin.AssignOrders';
 
-    public $assigneeReservationPermission = 'Admin.AssignReservation';
+    public $assigneeReservationPermission = 'Admin.AssignReservations';
 
     //
     // Object properties
@@ -127,7 +129,7 @@ class StatusEditor extends BaseFormWidget
     {
         $context = post('recordId');
         if (!in_array($context, ['load-status', 'load-assignee']))
-            throw new ApplicationException('Invalid action');
+            throw new ApplicationException(lang('admin::lang.statuses.alert_invalid_action'));
 
         $this->setMode(str_after($context, 'load-'));
 
@@ -148,7 +150,8 @@ class StatusEditor extends BaseFormWidget
         $arrayName = $this->getModeConfig('arrayName');
         $recordId = post($arrayName.'.'.$keyFrom);
 
-        $this->checkAssigneePermission();
+        if (!$this->isStatusMode)
+            $this->checkAssigneePermission();
 
         $model = $this->createFormModel();
         $form = $this->makeEditorFormWidget($model);
@@ -169,20 +172,14 @@ class StatusEditor extends BaseFormWidget
             throw new ApplicationException($ex->getMessage());
         }
 
-        if (!$this->isStatusMode) {
-            $group = Staff_groups_model::find(array_get($saveData, $this->assigneeGroupKeyFrom));
-            $staff = Staffs_model::find(array_get($saveData, $keyFrom));
-            $this->model->assignTo($group, $staff);
+        if ($this->saveRecord($saveData, $keyFrom)) {
+            flash()->success(sprintf(lang('admin::lang.alert_success'), lang($this->getModeConfig('formName')).' '.'updated'))->now();
         }
         else {
-            $status = Statuses_model::find(array_get($saveData, $keyFrom));
-            $this->model->addStatusHistory($status, $saveData);
-            $this->model->reloadRelations();
+            flash()->error(lang('admin::lang.alert_error_try_again'))->now();
         }
 
         $this->prepareVars();
-
-        flash()->success(sprintf(lang('admin::lang.alert_success'), lang($this->getModeConfig('formName')).' '.'updated'))->now();
 
         return [
             '#notification' => $this->makePartial('flash'),
@@ -196,7 +193,7 @@ class StatusEditor extends BaseFormWidget
             throw new ApplicationException(lang('admin::lang.form.missing_id'));
 
         if (!$status = Statuses_model::find($statusId))
-            throw new Exception('Status ID ['.$statusId.'] not found.');
+            throw new Exception(sprintf(lang('admin::lang.statuses.alert_status_not_found'), $statusId));
 
         return $status->toArray();
     }
@@ -335,9 +332,6 @@ class StatusEditor extends BaseFormWidget
 
     protected function checkAssigneePermission()
     {
-        if ($this->isStatusMode)
-            return;
-
         $saleType = $this->model instanceof Orders_model
             ? 'orderPermission' : 'reservationPermission';
 
@@ -345,5 +339,22 @@ class StatusEditor extends BaseFormWidget
 
         if (!$this->controller->getUser()->hasPermission($permission))
             throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+    }
+
+    protected function saveRecord(array $saveData, string $keyFrom)
+    {
+        if (!$this->isStatusMode) {
+            $group = Staff_groups_model::find(array_get($saveData, $this->assigneeGroupKeyFrom));
+            $staff = Staffs_model::find(array_get($saveData, $keyFrom));
+            if ($record = $this->model->updateAssignTo($group, $staff))
+                AssigneeUpdated::log($record, $this->getController()->getUser());
+        }
+        else {
+            $status = Statuses_model::find(array_get($saveData, $keyFrom));
+            if ($record = $this->model->addStatusHistory($status, $saveData))
+                StatusUpdated::log($record, $this->getController()->getUser());
+        }
+
+        return $record;
     }
 }

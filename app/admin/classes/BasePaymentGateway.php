@@ -3,22 +3,28 @@
 namespace Admin\Classes;
 
 use File;
+use Igniter\Flame\Exception\SystemException;
 use Model;
 use System\Actions\ModelAction;
 use URL;
 
 /**
  * Base Payment Gateway Class
- *
- * @package Admin
  */
 class BasePaymentGateway extends ModelAction
 {
+    /**
+     * @var \Admin\Models\Payments_model|Model Reference to the controller associated to this action
+     */
+    protected $model;
+
     protected $orderModel = 'Admin\Models\Orders_model';
 
     protected $orderStatusModel = 'Admin\Models\Statuses_model';
 
     protected $configFields = [];
+
+    protected $configRules = [];
 
     /**
      * Class constructor
@@ -32,7 +38,10 @@ class BasePaymentGateway extends ModelAction
 
         $calledClass = strtolower(get_called_class());
         $this->configPath = extension_path(File::normalizePath($calledClass));
-        $this->configFields = $this->loadConfig($this->defineFieldsConfig(), ['fields'], 'fields');
+
+        $formConfig = $this->loadConfig($this->defineFieldsConfig(), ['fields']);
+        $this->configFields = array_get($formConfig, 'fields');
+        $this->configRules = array_get($formConfig, 'rules');
 
         if (!$model)
             return;
@@ -78,6 +87,14 @@ class BasePaymentGateway extends ModelAction
     }
 
     /**
+     * Returns the form configuration used by this model.
+     */
+    public function getConfigRules()
+    {
+        return $this->configRules;
+    }
+
+    /**
      * Registers a entry page with specific URL. For example,
      * PayPal needs a landing page for the auto-return feature.
      * Important! Payment module access point names should have a prefix.
@@ -114,7 +131,7 @@ class BasePaymentGateway extends ModelAction
      */
     public function isApplicable($total, $host)
     {
-        return $host->order_total <= $total;
+        return TRUE;
     }
 
     /**
@@ -160,6 +177,66 @@ class BasePaymentGateway extends ModelAction
      * Executed when this gateway is rendered on the checkout page.
      */
     public function beforeRenderPaymentForm($host, $controller)
+    {
+    }
+
+    /**
+     * @return \Admin\Models\Payments_model
+     */
+    public function getHostObject()
+    {
+        return $this->model;
+    }
+
+    //
+    // Payment Profiles
+    //
+
+    /**
+     * This method should return TRUE if the gateway supports user payment profiles.
+     * The payment gateway must implement the updatePaymentProfile(), deletePaymentProfile() and payFromPaymentProfile() methods if this method returns true.
+     */
+    public function supportsPaymentProfiles()
+    {
+        return FALSE;
+    }
+
+    /**
+     * Creates a customer profile on the payment gateway or update if the profile already exists.
+     * @param \Admin\Models\Customers_model $customer Customer model to create a profile for
+     * @param array $data Posted payment form data
+     * @return \Admin\Models\Payment_profiles_model|object Returns the customer payment profile model
+     */
+    public function updatePaymentProfile($customer, $data)
+    {
+        throw new SystemException(lang('admin::lang.payments.alert_update_payment_profile'));
+    }
+
+    /**
+     * Deletes a customer payment profile from the payment gateway.
+     * @param \Admin\Models\Customers_model $customer Customer model
+     * @param \Admin\Models\Payment_profiles_model $profile Payment profile model
+     */
+    public function deletePaymentProfile($customer, $profile)
+    {
+        throw new SystemException(lang('admin::lang.payments.alert_delete_payment_profile'));
+    }
+
+    /**
+     * Creates a payment transaction from an existing payment profile.
+     * @param \Admin\Models\Orders_model $order An order object to pay
+     * @param array $data
+     */
+    public function payFromPaymentProfile($order, $data = [])
+    {
+        throw new SystemException(lang('admin::lang.payments.alert_pay_from_payment_profile'));
+    }
+
+    //
+    // Payment Refunds
+    //
+
+    public function processRefundForm($data, $order, $paymentLog)
     {
     }
 

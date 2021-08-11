@@ -14,6 +14,7 @@ class LocationAwareController extends ControllerAction
      *  $locationConfig = [
      *      'applyScopeOnListQuery'  => true',
      *      'applyScopeOnFormQuery'  => true',
+     *      'addAbsenceConstraint'  => false',
      *  ];
      * @var array
      */
@@ -53,12 +54,15 @@ class LocationAwareController extends ControllerAction
 
     public function locationApplyScope($query)
     {
-        if (
-            !AdminLocation::check()
-            OR !in_array(\Admin\Traits\Locationable::class, class_uses($query->getModel()))
-        ) return;
+        if (!in_array(\Admin\Traits\Locationable::class, class_uses($query->getModel())))
+            return;
 
-        $query->whereHasLocation($this->controller->getLocationId());
+        if (is_null($ids = AdminLocation::getIdOrAll()))
+            return;
+
+        (bool)$this->getConfig('addAbsenceConstraint', TRUE)
+            ? $query->whereHasOrDoesntHaveLocation($ids)
+            : $query->whereHasLocation($ids);
     }
 
     protected function locationBindEvents()
@@ -70,7 +74,7 @@ class LocationAwareController extends ControllerAction
             });
 
             Event::listen('admin.filter.extendQuery', function ($filterWidget, $query, $scope) {
-                if (array_key_exists('locationAware', $scope->config)
+                if (array_get($scope->config, 'locationAware') === TRUE
                     AND (bool)$this->getConfig('applyScopeOnListQuery', TRUE)
                 ) $this->locationApplyScope($query);
             });

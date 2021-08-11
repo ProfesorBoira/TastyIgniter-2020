@@ -14,7 +14,8 @@ App::before(function () {
         Route::any(config('system.assetsCombinerUri', '_assets').'/{asset}', 'System\Classes\Controller@combineAssets');
 
         // Other pages
-        Route::any('{slug}', 'System\Classes\Controller@runAdmin')->where('slug', '(.*)?');
+        Route::any('{slug}', 'System\Classes\Controller@runAdmin')
+            ->where('slug', '(.*)?');
     });
 
     // Admin entry point

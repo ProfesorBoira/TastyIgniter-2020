@@ -17,7 +17,6 @@ use Igniter\Flame\Pagic\Parsers\FileParser;
 use Igniter\Flame\Traits\EventEmitter;
 use Illuminate\Http\RedirectResponse;
 use Lang;
-use Log;
 use Main\Components\BlankComponent;
 use Main\Template\ComponentPartial;
 use Main\Template\Content;
@@ -32,19 +31,21 @@ use System\Classes\BaseComponent;
 use System\Classes\BaseController;
 use System\Classes\ComponentManager;
 use System\Helpers\ViewHelper;
+use System\Models\Request_logs_model;
 use System\Template\Extension\BladeExtension as SystemBladeExtension;
 use System\Traits\AssetMaker;
+use System\Traits\VerifiesCsrfToken;
 use URL;
 use View;
 
 /**
  * Main Controller Class
- * @package Main
  */
 class MainController extends BaseController
 {
     use AssetMaker;
     use EventEmitter;
+    use VerifiesCsrfToken;
 
     /**
      * @var \Main\Classes\Theme The main theme processed by the controller.
@@ -143,11 +144,15 @@ class MainController extends BaseController
         if (!$this->theme)
             throw new ApplicationException(Lang::get('main::lang.not_found.active_theme'));
 
+        $this->theme->loadThemeFile();
+
         $this->assetPath[] = $this->theme->getPath().'/assets';
         if ($this->theme->hasParent())
             $this->assetPath[] = $this->theme->getParentPath().'/assets';
 
         parent::__construct();
+
+        $this->theme->loadThemeFile();
 
         $this->router = new Router($this->theme);
 
@@ -168,13 +173,6 @@ class MainController extends BaseController
 
         $page = $this->router->findByUrl($url);
 
-        // Hidden page
-//        if ($page AND !$page->published) {
-//            if (!AdminAuth::getUser()) {
-//                $page = null;
-//            }
-//        }
-
         // Show maintenance message if maintenance is enabled
         if (setting('maintenance_mode') == 1 AND !AdminAuth::isLogged())
             return Response::make(
@@ -190,7 +188,7 @@ class MainController extends BaseController
 
             // Log the 404 request
             if (!App::runningUnitTests())
-                Log::error(sprintf(lang('main::lang.not_found.page_message').': %s', $url));
+                Request_logs_model::createLog(404);
 
             if (!$page = $this->router->findByUrl('/404'))
                 return Response::make(View::make('main::404'), $this->statusCode);
@@ -278,9 +276,8 @@ class MainController extends BaseController
         // Render the layout
         $this->loader->setSource($this->layout);
         $template = $this->template->load($this->layout->getFilePath());
-        $result = $template->render($this->vars);
 
-        return $result;
+        return $template->render($this->vars);
     }
 
     /**
@@ -358,6 +355,9 @@ class MainController extends BaseController
         if (!$handler = $this->getHandler())
             return FALSE;
 
+        if (!$this->verifyCsrfToken())
+            return FALSE;
+
         try {
             $this->validateHandler($handler);
 
@@ -385,10 +385,10 @@ class MainController extends BaseController
             if (is_array($result)) {
                 $response = array_merge($response, $result);
             }
-            else if (is_string($result)) {
+            elseif (is_string($result)) {
                 $response['result'] = $result;
             }
-            else if (is_object($result)) {
+            elseif (is_object($result)) {
                 return $result;
             }
 
@@ -533,7 +533,7 @@ class MainController extends BaseController
 
         $useCache = TRUE;
         if ($useCache) {
-            $options['cache'] = new FileSystem(storage_path().'/system/templates');
+            $options['cache'] = new FileSystem(config('view.compiled'));
         }
 
         $this->template = new Environment($this->loader, $options);
@@ -608,7 +608,6 @@ class MainController extends BaseController
         }
         // Process Component partial
         elseif (strpos($name, '::') !== FALSE) {
-
             if (($partial = $this->loadComponentPartial($name, $throwException)) === FALSE)
                 return FALSE;
 
@@ -616,7 +615,7 @@ class MainController extends BaseController
             $this->vars['__SELF__'] = $this->componentContext;
         }
         // Process theme partial
-        else if (($partial = $this->loadPartial($name, $throwException)) === FALSE) {
+        elseif (($partial = $this->loadPartial($name, $throwException)) === FALSE) {
             return FALSE;
         }
 

@@ -1,11 +1,11 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Model;
 
 /**
  * Menu categories Model Class
- *
- * @package Admin
  */
 class Menu_categories_model extends Model
 {
@@ -19,7 +19,7 @@ class Menu_categories_model extends Model
      */
     public $incrementing = FALSE;
 
-    public $casts = [
+    protected $casts = [
         'menu_id' => 'integer',
         'category_id' => 'integer',
     ];

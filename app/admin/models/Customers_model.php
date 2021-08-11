@@ -1,15 +1,14 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Carbon\Carbon;
-use DB;
 use Exception;
 use Igniter\Flame\Auth\Models\User as AuthUserModel;
 use Igniter\Flame\Database\Traits\Purgeable;
 
 /**
  * Customers Model Class
- *
- * @package Admin
  */
 class Customers_model extends AuthUserModel
 {
@@ -38,8 +37,8 @@ class Customers_model extends AuthUserModel
     public $relation = [
         'hasMany' => [
             'addresses' => ['Admin\Models\Addresses_model', 'delete' => TRUE],
-            'orders' => ['Admin\Models\Orders_model', 'delete' => TRUE],
-            'reservations' => ['Admin\Models\Reservations_model', 'delete' => TRUE],
+            'orders' => ['Admin\Models\Orders_model'],
+            'reservations' => ['Admin\Models\Reservations_model'],
         ],
         'belongsTo' => [
             'group' => ['Admin\Models\Customer_groups_model', 'foreignKey' => 'customer_group_id'],
@@ -51,7 +50,7 @@ class Customers_model extends AuthUserModel
 
     public $appends = ['full_name'];
 
-    public $casts = [
+    protected $casts = [
         'customer_id' => 'integer',
         'address_id' => 'integer',
         'customer_group_id' => 'integer',
@@ -103,8 +102,7 @@ class Customers_model extends AuthUserModel
         if ($this->is_activated OR $this->status)
             return;
 
-        throw new Exception(sprintf(
-            'Cannot login user "%s" until activated.', $this->email
+        throw new Exception(sprintf(lang('admin::lang.customers.alert_customer_not_active'), $this->email
         ));
     }
 
@@ -211,8 +209,6 @@ class Customers_model extends AuthUserModel
             if ($orders = Orders_model::where('email', $customer_email)->get()) {
                 foreach ($orders as $row) {
                     if (empty($row['order_id'])) continue;
-
-                    Coupons_history_model::where('order_id', $row['order_id'])->update($update);
 
                     if ($row['order_type'] == '1' AND !empty($row['address_id'])) {
                         Addresses_model::where('address_id', $row['address_id'])->update($update);

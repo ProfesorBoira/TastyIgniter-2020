@@ -1,15 +1,5 @@
 [
   {
-    "sort": "config",
-    "item": "site_location_mode",
-    "value": "multiple"
-  },
-  {
-    "sort": "config",
-    "item": "ratings",
-    "value": "a:1:{s:7:\"ratings\";a:5:{i:1;s:3:\"Bad\";i:2;s:5:\"Worse\";i:3;s:4:\"Good\";i:4;s:7:\"Average\";i:5;s:9:\"Excellent\";}}"
-  },
-  {
     "sort": "prefs",
     "item": "default_location_id",
     "value": "11"
@@ -28,16 +18,6 @@
     "sort": "config",
     "item": "timezone",
     "value": "Europe/London"
-  },
-  {
-    "sort": "config",
-    "item": "date_format",
-    "value": "d M Y"
-  },
-  {
-    "sort": "config",
-    "item": "time_format",
-    "value": "h:i a"
   },
   {
     "sort": "config",
@@ -111,11 +91,6 @@
   },
   {
     "sort": "config",
-    "item": "approve_reviews",
-    "value": "1"
-  },
-  {
-    "sort": "config",
     "item": "default_order_status",
     "value": "1"
   },
@@ -138,16 +113,6 @@
     "sort": "config",
     "item": "guest_order",
     "value": "1"
-  },
-  {
-    "sort": "config",
-    "item": "delivery_time",
-    "value": "45"
-  },
-  {
-    "sort": "config",
-    "item": "collection_time",
-    "value": "15"
   },
   {
     "sort": "config",
@@ -181,18 +146,13 @@
   },
   {
     "sort": "config",
-    "item": "allow_reviews",
-    "value": "1"
-  },
-  {
-    "sort": "config",
     "item": "invoice_prefix",
     "value": "INV-{year}-00"
   },
   {
     "sort": "config",
     "item": "protocol",
-    "value": "sendmail"
+    "value": "log"
   },
   {
     "sort": "config",

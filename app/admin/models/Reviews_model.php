@@ -1,4 +1,6 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Admin\Traits\Locationable;
 use Igniter\Flame\Auth\Models\User;
@@ -7,8 +9,7 @@ use Model;
 
 /**
  * Reviews Model Class
- *
- * @package Admin
+ * @deprecated remove before v4. Added for backward compatibility, see Igniter\Local\Models\Reviews_model
  */
 class Reviews_model extends Model
 {
@@ -35,7 +36,7 @@ class Reviews_model extends Model
 
     protected $guarded = [];
 
-    public $casts = [
+    protected $casts = [
         'customer_id' => 'integer',
         'sale_id' => 'integer',
         'location_id' => 'integer',
@@ -103,8 +104,11 @@ class Reviews_model extends Model
         if ($customer instanceof User) {
             $query->where('customer_id', $customer->getKey());
         }
-        else if (strlen($customer)) {
+        elseif (strlen($customer)) {
             $query->where('customer_id', $customer);
+        }
+        else {
+            $query->has('customer');
         }
 
         if (!is_array($sort)) {
@@ -117,7 +121,7 @@ class Reviews_model extends Model
                 if (count($parts) < 2) {
                     array_push($parts, 'desc');
                 }
-                list($sortField, $sortDirection) = $parts;
+                [$sortField, $sortDirection] = $parts;
                 $query->orderBy($sortField, $sortDirection);
             }
         }
@@ -133,8 +137,8 @@ class Reviews_model extends Model
     public function scopeHasBeenReviewed($query, $sale, $customerId)
     {
         return $query->where('sale_type', $sale->getMorphClass())
-                     ->where('sale_id', $sale->getKey())
-                     ->where('customer_id', $customerId);
+            ->where('sale_id', $sale->getKey())
+            ->where('customer_id', $customerId);
     }
 
     public function scopeWhereReviewable($query, $causer)
@@ -170,7 +174,7 @@ class Reviews_model extends Model
     public static function checkReviewed(Model $object, Model $customer)
     {
         $query = self::whereReviewable($object)
-                     ->where('customer_id', $customer->getKey());
+            ->where('customer_id', $customer->getKey());
 
         return $query->exists();
     }

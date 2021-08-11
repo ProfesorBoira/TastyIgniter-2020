@@ -2,25 +2,31 @@
 $config['list']['filter'] = [
     'search' => [
         'prompt' => 'lang:admin::lang.staff.text_filter_search',
-        'mode' => 'all' // or any, exact
+        'mode' => 'all', // or any, exact
     ],
     'scopes' => [
+        'location' => [
+            'label' => 'lang:admin::lang.text_filter_location',
+            'type' => 'select',
+            'scope' => 'whereHasLocation',
+            'modelClass' => 'Admin\Models\Locations_model',
+            'nameFrom' => 'location_name',
+            'locationAware' => TRUE,
+        ],
         'role' => [
             'label' => 'lang:admin::lang.staff.text_filter_role',
             'type' => 'select',
             'conditions' => 'staff_role_id = :filtered',
             'modelClass' => 'Admin\Models\Staff_roles_model',
         ],
-        'date' => [
-            'label' => 'lang:admin::lang.text_filter_date',
-            'type' => 'date',
-            'conditions' => 'YEAR(date_added) = :year AND MONTH(date_added) = :month',
-            'modelClass' => 'Admin\Models\Staffs_model',
-            'options' => 'getStaffDates',
-        ],
         'status' => [
             'label' => 'lang:admin::lang.text_filter_status',
             'type' => 'switch',
+        ],
+        'date' => [
+            'label' => 'lang:admin::lang.text_filter_date',
+            'type' => 'date',
+            'conditions' => 'YEAR(date_added) = :year AND MONTH(date_added) = :month AND DAY(date_added) = :day',
         ],
     ],
 ];
@@ -40,12 +46,6 @@ $config['list']['toolbar'] = [
             'data-request-form' => '#list-form',
             'data-request-data' => "_method:'DELETE'",
             'data-request-confirm' => 'lang:admin::lang.alert_warning_confirm',
-        ],
-        'filter' => [
-            'label' => 'lang:admin::lang.button_icon_filter',
-            'class' => 'btn btn-default btn-filter',
-            'data-toggle' => 'list-filter',
-            'data-target' => '.list-filter',
         ],
         'groups' => [
             'label' => 'lang:admin::lang.side_menu.staff_group',
@@ -95,6 +95,7 @@ $config['list']['columns'] = [
         'relation' => 'locations',
         'select' => 'location_name',
         'searchable' => TRUE,
+        'locationAware' => TRUE,
     ],
     'last_login' => [
         'label' => 'lang:admin::lang.staff.column_last_login',
@@ -103,7 +104,7 @@ $config['list']['columns'] = [
         'select' => 'last_login',
     ],
     'date_added' => [
-        'label' => 'lang:admin::lang.staff.column_date_added',
+        'label' => 'lang:admin::lang.column_date_added',
         'type' => 'datesince',
     ],
     'staff_status' => [
@@ -119,17 +120,24 @@ $config['list']['columns'] = [
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default',
+            'href' => 'staffs',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
+            'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
+        'save_account' => [
+            'label' => 'lang:admin::lang.button_save',
+            'context' => ['account'],
+            'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -195,11 +203,20 @@ $config['form']['fields'] = [
         'nameFrom' => 'staff_group_name',
         'comment' => 'lang:admin::lang.staff.help_groups',
     ],
+    'staff_role_id' => [
+        'label' => 'lang:admin::lang.staff.label_role',
+        'type' => 'radiolist',
+        'span' => 'left',
+        'context' => ['create', 'edit'],
+        'options' => ['Admin\Models\Staff_roles_model', 'listDropdownOptions'],
+        'commentAbove' => 'lang:admin::lang.staff.help_role',
+    ],
     'user[super_user]' => [
         'label' => 'lang:admin::lang.staff.label_super_staff',
         'type' => 'switch',
         'context' => ['create', 'edit'],
-        'span' => 'left',
+        'span' => 'right',
+        'cssClass' => 'flex-width',
         'comment' => 'lang:admin::lang.staff.help_super_staff',
     ],
     'staff_status' => [
@@ -207,6 +224,7 @@ $config['form']['fields'] = [
         'type' => 'switch',
         'context' => ['create', 'edit'],
         'span' => 'right',
+        'cssClass' => 'flex-width',
         'default' => 1,
     ],
     'sale_permission' => [
@@ -219,13 +237,6 @@ $config['form']['fields'] = [
             2 => ['lang:admin::lang.staff.text_sale_permission_groups', 'lang:admin::lang.staff.help_sale_permission_groups'],
             3 => ['lang:admin::lang.staff.text_sale_permission_restricted', 'lang:admin::lang.staff.help_sale_permission_restricted'],
         ],
-    ],
-    'staff_role_id' => [
-        'label' => 'lang:admin::lang.staff.label_role',
-        'type' => 'radiolist',
-        'context' => ['create', 'edit'],
-        'options' => ['Admin\Models\Staff_roles_model', 'listDropdownOptions'],
-        'commentAbove' => 'lang:admin::lang.staff.help_role',
     ],
 ];
 

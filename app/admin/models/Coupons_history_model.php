@@ -1,11 +1,13 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Model;
 
 /**
  * Coupons History Model Class
  *
- * @package Admin
+ * @deprecated remove before v4. Added for backward compatibility, see Igniter\Coupons\Models\Coupons_history_model
  */
 class Coupons_history_model extends Model
 {
@@ -27,7 +29,7 @@ class Coupons_history_model extends Model
 
     protected $appends = ['customer_name'];
 
-    public $casts = [
+    protected $casts = [
         'coupon_history_id' => 'integer',
         'coupon_id' => 'integer',
         'order_id' => 'integer',
@@ -65,23 +67,26 @@ class Coupons_history_model extends Model
     }
 
     /**
+     * @param \Admin\Models\Orders_model $order
      * @param \Igniter\Flame\Cart\CartCondition $couponCondition
+     * @param \Admin\Models\Orders_model $order
      * @param \Admin\Models\Customers_model $customer
      * @return \Admin\Models\Coupons_history_model|bool
      */
-    public static function createHistory($couponCondition, $customer)
+    public static function createHistory($couponCondition, $order, $customer)
     {
         if (!$coupon = $couponCondition->getModel())
             return FALSE;
 
         $model = new static;
+        $model->order_id = $order->getKey();
         $model->customer_id = $customer ? $customer->getKey() : 0;
         $model->coupon_id = $coupon->coupon_id;
         $model->code = $coupon->code;
         $model->amount = $couponCondition->getValue();
         $model->min_total = $coupon->min_total;
 
-        if ($model->fireSystemEvent('couponHistory.beforeAddHistory', [$model, $couponCondition, $customer, $coupon], TRUE) === FALSE)
+        if ($model->fireSystemEvent('couponHistory.beforeAddHistory', [$couponCondition, $customer, $coupon], TRUE) === FALSE)
             return FALSE;
 
         $model->save();

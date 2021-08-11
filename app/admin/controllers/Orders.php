@@ -1,4 +1,6 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use AdminMenu;
 use Igniter\Flame\Exception\ApplicationException;
@@ -41,16 +43,33 @@ class Orders extends \Admin\Classes\AdminController
         'configFile' => 'orders_model',
     ];
 
-    protected $requiredPermissions = ['Admin.Orders', 'Admin.AssignOrders'];
+    protected $requiredPermissions = [
+        'Admin.Orders',
+        'Admin.AssignOrders',
+        'Admin.DeleteOrders',
+    ];
 
     public function __construct()
     {
         parent::__construct();
 
-        if ($this->action === 'assigned')
-            $this->requiredPermissions = null;
-
         AdminMenu::setContext('orders', 'sales');
+    }
+
+    public function index_onDelete()
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteOrders'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\ListController')->index_onDelete();
+    }
+
+    public function edit_onDelete($context, $recordId)
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteOrders'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\FormController')->edit_onDelete($context, $recordId);
     }
 
     public function invoice($context, $recordId = null)
@@ -58,7 +77,7 @@ class Orders extends \Admin\Classes\AdminController
         $model = $this->formFindModelObject($recordId);
 
         if (!$model->hasInvoice())
-            throw new ApplicationException('Invoice has not yet been generated');
+            throw new ApplicationException(lang('admin::lang.orders.alert_invoice_not_generated'));
 
         $this->vars['model'] = $model;
 
@@ -67,14 +86,14 @@ class Orders extends \Admin\Classes\AdminController
 
     public function formExtendFieldsBefore($form)
     {
-        if (!array_key_exists('invoice_no', $form->tabs['fields']))
+        if (!array_key_exists('invoice_number', $form->tabs['fields']))
             return;
 
         if (!$form->model->hasInvoice()) {
-            array_pull($form->tabs['fields']['invoice_no'], 'addonRight');
+            array_pull($form->tabs['fields']['invoice_number'], 'addonRight');
         }
         else {
-            $form->tabs['fields']['invoice_no']['addonRight']['attributes']['href'] = admin_url('orders/invoice/'.$form->model->getKey());
+            $form->tabs['fields']['invoice_number']['addonRight']['attributes']['href'] = admin_url('orders/invoice/'.$form->model->getKey());
         }
     }
 

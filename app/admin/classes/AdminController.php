@@ -28,6 +28,7 @@ use System\Classes\BaseController;
 use System\Classes\ErrorHandler;
 use System\Traits\AssetMaker;
 use System\Traits\ConfigMaker;
+use System\Traits\VerifiesCsrfToken;
 use System\Traits\ViewMaker;
 
 class AdminController extends BaseController
@@ -38,6 +39,7 @@ class AdminController extends BaseController
     use WidgetMaker;
     use ValidatesForm;
     use HasAuthentication;
+    use VerifiesCsrfToken;
 
     /**
      * @var object Object used for storing a fatal error.
@@ -136,6 +138,10 @@ class AdminController extends BaseController
         $this->action = $action;
         $this->params = $params;
 
+        if (!$this->verifyCsrfToken()) {
+            return Response::make(lang('admin::lang.alert_invalid_csrf_token'), 403);
+        }
+
         // Determine if this request is a public action or authentication is required
         $requireAuthentication = !(in_array($action, $this->publicActions) OR !$this->requireAuthentication);
 
@@ -159,6 +165,10 @@ class AdminController extends BaseController
         // Top menu widget is available on all admin pages
         $this->makeMainMenuWidget();
 
+        if ($event = $this->fireSystemEvent('admin.controller.beforeResponse', [$action, $params])) {
+            return $event;
+        }
+
         // Execute post handler and AJAX event
         if ($handlerResponse = $this->processHandlers() AND $handlerResponse !== TRUE) {
             return $handlerResponse;
@@ -169,10 +179,6 @@ class AdminController extends BaseController
 
         if (!is_string($response))
             return $response;
-
-        if ($event = $this->fireEvent('controller.beforeResponse', [$this, $response])) {
-            return $event;
-        }
 
         // Return response
         return is_string($response)
@@ -278,10 +284,10 @@ class AdminController extends BaseController
             if (is_array($result)) {
                 $response = array_merge($response, $result);
             }
-            else if (is_string($result)) {
+            elseif (is_string($result)) {
                 $response['result'] = $result;
             }
-            else if (is_object($result)) {
+            elseif (is_object($result)) {
                 return $result;
             }
 
@@ -290,10 +296,11 @@ class AdminController extends BaseController
         catch (ValidationException $ex) {
             $this->flashValidationErrors($ex->getErrors());
 
-            if (Request::ajax())
-                return ['#notification' => $this->makePartial('flash')];
+            $response['#notification'] = $this->makePartial('flash');
+            $response['X_IGNITER_ERROR_FIELDS'] = $ex->getFields();
+//            $response['X_IGNITER_ERROR_MESSAGE'] = $ex->getMessage(); avoid duplicate flash message.
 
-            throw new AjaxException($ex->getMessage());
+            throw new AjaxException($response);
         }
         catch (MassAssignmentException $ex) {
             throw new ApplicationException(lang('admin::lang.form.mass_assignment_failed', ['attribute' => $ex->getMessage()]));
@@ -306,7 +313,7 @@ class AdminController extends BaseController
     protected function validateHandler($handler)
     {
         if (!preg_match('/^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/', $handler)) {
-            throw new SystemException("Invalid ajax handler name: {$handler}");
+            throw new SystemException(sprintf(lang('admin::lang.alert_invalid_ajax_handler_name'), $handler));
         }
     }
 
@@ -319,7 +326,7 @@ class AdminController extends BaseController
 
         foreach ($partials as $partial) {
             if (!preg_match('/^(?:\w+\:{2}|@)?[a-z0-9\_\-\.\/]+$/i', $partial)) {
-                throw new SystemException("Invalid partial name: $partial");
+                throw new SystemException(sprintf(lang('admin::lang.alert_invalid_ajax_partial_name'), $partial));
             }
         }
 
@@ -384,10 +391,7 @@ class AdminController extends BaseController
             $this->pageAction();
 
             if (!isset($this->widgets[$widgetName])) {
-                throw new Exception(sprintf(
-                    "A widget with class name '%s' has not been bound to the controller",
-                    $widgetName
-                ));
+                throw new Exception(sprintf(lang('admin::lang.alert_widget_not_bound_to_controller'), $widgetName));
             }
 
             if (($widget = $this->widgets[$widgetName]) AND method_exists($widget, $handlerName)) {

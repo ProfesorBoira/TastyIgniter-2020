@@ -1,4 +1,6 @@
-<?php namespace System\Database\Seeds;
+<?php
+
+namespace System\Database\Seeds;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,8 @@ class InitialSchemaSeeder extends Seeder
         $this->seedCustomerGroups();
 
         $this->seedLanguages();
+
+        $this->seedDefaultLocation();
 
         $this->seedMealtimes();
 
@@ -84,6 +88,45 @@ class InitialSchemaSeeder extends Seeder
             'status' => TRUE,
             'can_delete' => FALSE,
         ]);
+    }
+
+    protected function seedDefaultLocation()
+    {
+        // Abort: a location already exists
+        if (DB::table('locations')->count())
+            return TRUE;
+
+        $location = $this->getSeedRecords('location');
+        $location['location_email'] = DatabaseSeeder::$siteEmail;
+        $location['options'] = serialize($location['options']);
+        $location['delivery_areas'][0]['boundaries']['circle'] = json_encode(
+            $location['delivery_areas'][0]['boundaries']['circle']
+        );
+
+        $locationId = DB::table('locations')->insertGetId(array_except($location, ['delivery_areas']));
+
+        $this->seedLocationTables($locationId);
+    }
+
+    protected function seedLocationTables($locationId)
+    {
+        if (DB::table('tables')->count())
+            return;
+
+        for ($i = 1; $i < 15; $i++) {
+            $tableId = DB::table('tables')->insertGetId([
+                'table_name' => 'Table '.$i,
+                'min_capacity' => random_int(2, 5),
+                'max_capacity' => random_int(6, 12),
+                'table_status' => 1,
+            ]);
+
+            DB::table('locationables')->insert([
+                'location_id' => $locationId,
+                'locationable_id' => $tableId,
+                'locationable_type' => 'tables',
+            ]);
+        }
     }
 
     protected function seedMealtimes()
@@ -162,7 +205,7 @@ class InitialSchemaSeeder extends Seeder
             'name' => 'Manager',
             'code' => 'manager',
             'description' => 'Default role for restaurant managers.',
-            'permissions' => 'a:18:{s:15:"Admin.Dashboard";s:1:"1";s:16:"Admin.Categories";s:1:"1";s:14:"Admin.Statuses";s:1:"1";s:12:"Admin.Staffs";s:1:"1";s:17:"Admin.StaffGroups";s:1:"1";s:15:"Admin.Customers";s:1:"1";s:20:"Admin.CustomerGroups";s:1:"1";s:13:"Admin.Reviews";s:1:"1";s:14:"Admin.Payments";s:1:"1";s:18:"Admin.Reservations";s:1:"1";s:12:"Admin.Orders";s:1:"1";s:12:"Admin.Tables";s:1:"1";s:15:"Admin.Locations";s:1:"1";s:13:"Admin.Coupons";s:1:"1";s:15:"Admin.Mealtimes";s:1:"1";s:11:"Admin.Menus";s:1:"1";s:11:"Site.Themes";s:1:"1";s:18:"Admin.MediaManager";s:1:"1";}',
+            'permissions' => 'a:16:{s:15:"Admin.Dashboard";s:1:"1";s:16:"Admin.Categories";s:1:"1";s:14:"Admin.Statuses";s:1:"1";s:12:"Admin.Staffs";s:1:"1";s:17:"Admin.StaffGroups";s:1:"1";s:15:"Admin.Customers";s:1:"1";s:20:"Admin.CustomerGroups";s:1:"1";s:14:"Admin.Payments";s:1:"1";s:18:"Admin.Reservations";s:1:"1";s:12:"Admin.Orders";s:1:"1";s:12:"Admin.Tables";s:1:"1";s:15:"Admin.Locations";s:1:"1";s:15:"Admin.Mealtimes";s:1:"1";s:11:"Admin.Menus";s:1:"1";s:11:"Site.Themes";s:1:"1";s:18:"Admin.MediaManager";s:1:"1";}',
         ]);
 
         DB::table('staff_roles')->insert([

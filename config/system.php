@@ -4,6 +4,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Site Location Mode.
+    |--------------------------------------------------------------------------
+    |
+    | Set whether to enable support for single or multiple restaurant locations.
+    |
+    | Supported: "single", "multiple"
+    |
+    */
+
+    'locationMode' => env('IGNITER_LOCATION_MODE', 'multiple'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Specifies the default themes.
     |--------------------------------------------------------------------------
     |
@@ -66,7 +79,7 @@ return [
     |
     */
 
-//    'extensionsPath' => base_path('extensions'),
+    //'extensionsPath' => base_path('extensions'),
 
     /*
     |--------------------------------------------------------------------------
@@ -77,7 +90,7 @@ return [
     |
     */
 
-//    'themesPath' => base_path('themes'),
+    //'themesPath' => base_path('themes'),
 
     /*
     |--------------------------------------------------------------------------
@@ -88,7 +101,7 @@ return [
     |
     */
 
-//    'assetsPath' => base_path('assets'),
+    //'assetsPath' => base_path('assets'),
 
     /*
     |--------------------------------------------------------------------------
@@ -111,24 +124,24 @@ return [
     |
     | The URL map used in the Main page routing process. By default
     | the map is updated every time when a page is saved in the admin or when the
-    | interval, in seconds, specified with the urlMapCacheTTL parameter expires.
+    | interval, in minutes, specified with the urlMapCacheTTL parameter expires.
     |
     */
 
-    'urlMapCacheTtl' => 600,
+    'urlMapCacheTtl' => 10,
 
     /*
     |--------------------------------------------------------------------------
     | Time to live for parsed Template Pages.
     |--------------------------------------------------------------------------
     |
-    | Specifies the number of seconds the Template object cache lives. After the interval
+    | Specifies the number of minutes the Template object cache lives. After the interval
     | is expired item are re-cached. Note that items are re-cached automatically when
     | the corresponding template file is modified.
     |
     */
 
-    'parsedTemplateCacheTTL' => 600,
+    'parsedTemplateCacheTTL' => 10,
 
     'parsedTemplateCachePath' => storage_path('system/cache'),
 
@@ -168,6 +181,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | URL Linking policy
+    |--------------------------------------------------------------------------
+    |
+    | Controls how URL links are generated.
+    |
+    | detect   - detect hostname and use the current schema
+    | secure   - detect hostname and force HTTPS schema
+    | insecure - detect hostname and force HTTP schema
+    | force    - force hostname and schema using app.url config value
+    |
+    */
+
+    'urlPolicy' => 'force',
+
+    /*
+    |--------------------------------------------------------------------------
     | Assets combiner URI
     |--------------------------------------------------------------------------
     |
@@ -188,4 +217,16 @@ return [
 
     'filePermissions' => '777',
     'folderPermissions' => '777',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cross Site Request Forgery (CSRF) Protection
+    |--------------------------------------------------------------------------
+    |
+    | If the CSRF protection is enabled, all "postback" requests are checked
+    | for a valid security token.
+    |
+    */
+
+    'enableCsrfProtection' => TRUE,
 ];

@@ -1,8 +1,11 @@
-<?php namespace Admin\FormWidgets;
+<?php
+
+namespace Admin\FormWidgets;
 
 use Admin\Classes\BaseFormWidget;
 use Admin\Classes\FormField;
 use Admin\Traits\FormModelWidget;
+use Admin\Traits\ValidatesForm;
 use Admin\Widgets\Form;
 use ApplicationException;
 use DB;
@@ -10,12 +13,11 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Form Relationship
- *
- * @package Admin
  */
 class Connector extends BaseFormWidget
 {
     use FormModelWidget;
+    use ValidatesForm;
 
     const INDEX_SEARCH = '___index__';
 
@@ -58,6 +60,11 @@ class Connector extends BaseFormWidget
      */
     public $sortable = FALSE;
 
+    /**
+     * @var bool Items can be edited.
+     */
+    public $editable = TRUE;
+
     public $popupSize;
 
     public function initialize()
@@ -66,6 +73,7 @@ class Connector extends BaseFormWidget
             'formName',
             'form',
             'prompt',
+            'editable',
             'sortable',
             'nameFrom',
             'descriptionFrom',
@@ -86,7 +94,8 @@ class Connector extends BaseFormWidget
 
     public function loadAssets()
     {
-        $this->addJs('../../repeater/assets/js/jquery-sortable.js', 'jquery-sortable-js');
+        $this->addJs('../../repeater/assets/vendor/sortablejs/Sortable.min.js', 'sortable-js');
+        $this->addJs('../../repeater/assets/vendor/sortablejs/jquery-sortable.js', 'jquery-sortable-js');
         $this->addJs('../../repeater/assets/js/repeater.js', 'repeater-js');
 
         $this->addJs('../../recordeditor/assets/js/recordeditor.modal.js', 'recordeditor-modal-js');
@@ -109,6 +118,7 @@ class Connector extends BaseFormWidget
         $this->vars['fieldItems'] = $this->processLoadValue() ?? [];
 
         $this->vars['prompt'] = $this->prompt;
+        $this->vars['editable'] = $this->editable;
         $this->vars['sortable'] = $this->sortable;
         $this->vars['nameFrom'] = $this->nameFrom;
         $this->vars['partial'] = $this->partial;
@@ -122,7 +132,7 @@ class Connector extends BaseFormWidget
         $model = $this->getRelationModel()->find($recordId);
 
         if (!$model)
-            throw new ApplicationException('Record not found');
+            throw new ApplicationException(lang('admin::lang.form.record_not_found'));
 
         return $this->makePartial('recordeditor/form', [
             'formRecordId' => $recordId,
@@ -139,7 +149,9 @@ class Connector extends BaseFormWidget
 
         $form = $this->makeItemFormWidget($model, 'edit');
 
-        $modelsToSave = $this->prepareModelsToSave($model, $form->getSaveData());
+        $this->validateFormWidget($form, $saveData = $form->getSaveData());
+
+        $modelsToSave = $this->prepareModelsToSave($model, $saveData);
 
         DB::transaction(function () use ($modelsToSave) {
             foreach ($modelsToSave as $modelToSave) {
@@ -148,6 +160,9 @@ class Connector extends BaseFormWidget
         });
 
         flash()->success(sprintf(lang('admin::lang.alert_success'), 'Item updated'))->now();
+
+        $this->formField->value = null;
+        $this->model->reloadRelations();
 
         $this->prepareVars();
 
@@ -203,15 +218,15 @@ class Connector extends BaseFormWidget
         $sortedIndexes = (array)post($this->sortableInputName);
         $sortedIndexes = array_flip($sortedIndexes);
 
-        $value = [];
+        $results = [];
         foreach ($items as $index => $item) {
-            $value[$index] = [
+            $results[$index] = [
                 $item->getKeyName() => $item->getKey(),
                 $this->sortColumnName => $sortedIndexes[$item->getKey()],
             ];
         }
 
-        return $value;
+        return $results;
     }
 
     protected function makeItemFormWidget($model, $context)

@@ -1,4 +1,6 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use Admin\Classes\AdminController;
 use Admin\Models\Menu_options_model;
@@ -31,11 +33,13 @@ class Menus extends AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'menus/edit/{menu_id}',
             'redirectClose' => 'menus',
+            'redirectNew' => 'menus/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'menus/edit/{menu_id}',
             'redirectClose' => 'menus',
+            'redirectNew' => 'menus/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -53,14 +57,14 @@ class Menus extends AdminController
     {
         parent::__construct();
 
-        AdminMenu::setContext('menus', 'kitchen');
+        AdminMenu::setContext('menus', 'restaurant');
     }
 
     public function edit_onChooseMenuOption($context, $recordId)
     {
         $menuOptionId = post('Menu._options');
         if (!$menuOption = Menu_options_model::find($menuOptionId))
-            throw new ApplicationException('Please select a menu option to attach');
+            throw new ApplicationException(lang('admin::lang.menus.alert_menu_option_not_attached'));
 
         $model = $this->asExtension('FormController')->formFindModelObject($recordId);
 

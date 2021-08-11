@@ -1,4 +1,6 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use Admin\Classes\AdminController;
 use Admin\Models\Categories_model;
@@ -30,11 +32,13 @@ class Categories extends AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'categories/edit/{category_id}',
             'redirectClose' => 'categories',
+            'redirectNew' => 'categories/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'categories/edit/{category_id}',
             'redirectClose' => 'categories',
+            'redirectNew' => 'categories/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -52,11 +56,14 @@ class Categories extends AdminController
     {
         parent::__construct();
 
-        AdminMenu::setContext('categories', 'kitchen');
+        AdminMenu::setContext('categories', 'restaurant');
     }
 
     public function formBeforeSave($model)
     {
+        if (!$model->getRgt() OR !$model->getLft())
+            $model->fixTree();
+
         if (Categories_model::isBroken())
             Categories_model::fixTree();
     }

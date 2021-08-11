@@ -6,13 +6,16 @@ use Admin\Classes\BaseWidget;
 use Admin\Classes\FormField;
 use Admin\Classes\FormTabs;
 use Admin\Classes\Widgets;
+use Admin\Facades\AdminAuth;
 use Admin\Traits\FormModelWidget;
+use Admin\Traits\LocationAwareWidget;
 use Exception;
 use Model;
 
 class Form extends BaseWidget
 {
     use FormModelWidget;
+    use LocationAwareWidget;
 
     //
     // Configurable properties
@@ -67,7 +70,7 @@ class Form extends BaseWidget
     protected $defaultAlias = 'form';
 
     /**
-     * @var boolean Determines if field definitions have been created.
+     * @var bool Determines if field definitions have been created.
      */
     protected $fieldsDefined = FALSE;
 
@@ -107,6 +110,8 @@ class Form extends BaseWidget
      */
     protected $widgetManager;
 
+    protected $optionModelTypes;
+
     public function initialize()
     {
         $this->fillFromConfig([
@@ -118,6 +123,13 @@ class Form extends BaseWidget
             'arrayName',
             'context',
         ]);
+
+        $this->optionModelTypes = [
+            'select', 'selectlist',
+            'radio', 'radiolist', 'radiotoggle',
+            'checkbox', 'checkboxlist', 'checkboxtoggle',
+            'partial',
+        ];
 
         $this->widgetManager = Widgets::instance();
         $this->allTabs = (object)$this->allTabs;
@@ -140,6 +152,8 @@ class Form extends BaseWidget
     {
         $this->addJs('vendor/bootstrap-multiselect/bootstrap-multiselect.js', 'bootstrap-multiselect-js');
         $this->addCss('vendor/bootstrap-multiselect/bootstrap-multiselect.css', 'bootstrap-multiselect-css');
+
+        $this->addJs('vendor/inputmask/jquery.inputmask.min.js', 'inputmask-js');
 
         $this->addJs('js/selectlist.js', 'selectlist-js');
         $this->addCss('css/selectlist.css', 'selectlist-css');
@@ -353,16 +367,22 @@ class Form extends BaseWidget
     public function addFields(array $fields, $addToArea = null)
     {
         foreach ($fields as $name => $config) {
-            // Check that the form field matches the active context
-            if (array_key_exists('context', $config)) {
-                $context = (array)$config['context'];
-                if (!in_array($this->getContext(), $context)) {
-                    continue;
-                }
+            // Check if admin has permissions to show this field
+            $permissions = array_get($config, 'permissions');
+            if (!empty($permissions) AND !AdminAuth::getUser()->hasPermission($permissions, FALSE)) {
+                continue;
             }
 
             $fieldObj = $this->makeFormField($name, $config);
             $fieldTab = is_array($config) ? array_get($config, 'tab') : null;
+
+            // Check that the form field matches the active context
+            if ($fieldObj->context !== null) {
+                $context = is_array($fieldObj->context) ? $fieldObj->context : [$fieldObj->context];
+                if (!in_array($this->getContext(), $context)) {
+                    continue;
+                }
+            }
 
             $this->allFields[$name] = $fieldObj;
 
@@ -447,7 +467,6 @@ class Form extends BaseWidget
 
         // Simple field type
         if (is_string($config)) {
-
             if ($this->isFormWidget($config) !== FALSE) {
                 $field->displayAs('widget', ['widget' => $config]);
             }
@@ -456,7 +475,6 @@ class Form extends BaseWidget
             }
         } // Defined field type
         else {
-
             $fieldType = $config['type'] ?? null;
             if (!is_string($fieldType) AND !is_null($fieldType)) {
                 throw new Exception(sprintf(
@@ -482,9 +500,7 @@ class Form extends BaseWidget
 //        }
 
         // Get field options from model
-        $optionModelTypes = ['select', 'selectlist', 'radio', 'checkbox', 'checkboxlist', 'radiolist', 'partial'];
-        if (in_array($field->type, $optionModelTypes, FALSE)) {
-
+        if (in_array($field->type, $this->optionModelTypes, FALSE)) {
             // Defer the execution of option data collection
             $field->options(function () use ($field, $config) {
                 $fieldOptions = $config['options'] ?? null;
@@ -526,7 +542,9 @@ class Form extends BaseWidget
         $widgetClass = $this->widgetManager->resolveFormWidget($widgetName);
 
         if (!class_exists($widgetClass)) {
-            throw new Exception(sprintf("The Widget class name '%s' has not been registered", $widgetClass));
+            throw new Exception(sprintf(
+                lang('admin::lang.alert_widget_class_name'), gettype($fieldType)
+            ));
         }
 
         $widget = $this->makeFormWidget($widgetClass, $field, $widgetConfig);
@@ -692,7 +710,7 @@ class Form extends BaseWidget
      *
      * @param \Admin\Classes\FormField $field
      *
-     * @return boolean
+     * @return bool
      */
     public function showFieldLabels($field)
     {
@@ -732,8 +750,11 @@ class Form extends BaseWidget
 
             // Handle HTML array, eg: item[key][another]
             $parts = name_to_array($field->fieldName);
-            if (($value = $this->dataArrayGet($data, $parts)) !== null) {
-
+            $value = $this->dataArrayGet($data, $parts);
+            if (is_null($value) AND in_array($field->type, ['checkboxtoggle', 'radiotoggle'])) {
+                $this->dataArraySet($result, $parts, $value);
+            }
+            elseif ($value !== null) {
                 // Number fields should be converted to integers
                 if ($field->type === 'number') {
                     $value = !strlen(trim($value)) ? null : (float)$value;
@@ -746,6 +767,9 @@ class Form extends BaseWidget
         // Give widgets an opportunity to process the data.
         foreach ($this->formWidgets as $field => $widget) {
             $parts = name_to_array($field);
+
+            if (isset($widget->config->disabled) AND $widget->config->disabled)
+                continue;
 
             $widgetValue = $widget->getSaveValue($this->dataArrayGet($result, $parts));
             $this->dataArraySet($result, $parts, $widgetValue);
@@ -766,6 +790,14 @@ class Form extends BaseWidget
         $cookieKey = $this->getCookieKey();
 
         $activeTab = $activeTabs[$cookieKey] ?? null;
+
+        $tabs = $this->allTabs->primary;
+        $type = $tabs->section;
+        $activeTabIndex = (int)str_after($activeTab, '#'.$type.'tab-');
+
+        // In cases where a tab has been removed, the first tab becomes the active tab
+        $activeTab = ($activeTabIndex <= count($tabs->fields))
+            ? $activeTab : '#'.$type.'tab-1';
 
         return $this->activeTab = $activeTab;
     }
@@ -924,7 +956,7 @@ class Form extends BaseWidget
      *
      * @param string $fieldType
      *
-     * @return boolean
+     * @return bool
      */
     protected function isFormWidget($fieldType)
     {
@@ -1012,7 +1044,7 @@ class Form extends BaseWidget
      * @param object $object
      * @param string $method
      *
-     * @return boolean
+     * @return bool
      */
     protected function objectMethodExists($object, $method)
     {
@@ -1080,7 +1112,7 @@ class Form extends BaseWidget
                 $array[$key] = [];
             }
 
-            $array =& $array[$key];
+            $array = &$array[$key];
         }
 
         $array[array_shift($parts)] = $value;

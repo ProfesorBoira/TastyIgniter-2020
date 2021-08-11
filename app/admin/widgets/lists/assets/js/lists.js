@@ -5,7 +5,7 @@ $(function () {
     var $listFilterButton = $('[data-toggle="list-filter"]'),
         $listFilterTarget = $($listFilterButton.data('target')),
         listFilterStoreName = $listFilterTarget.data('storeName'),
-        displayFilterPanel = Cookies.set(listFilterStoreName)
+        displayFilterPanel = Cookies.get(listFilterStoreName)
 
     $listFilterButton.on('click', function () {
         var $button = $(this)
@@ -26,19 +26,16 @@ $(function () {
 
 // Submit list filter form on select change
 $(function () {
-    $(document).on('change', '.filter-scope select', function (event) {
+    $(document).on('change', '.filter-scope select, .filter-scope input[type="checkbox"]', function (event) {
         $(event.currentTarget).closest('form').submit()
     })
 })
 
 $(function ($) {
     // List setup form sortables
-    $('#lists-setup-modal-content').sortable({
-        // containerSelector: '.form-check-group',
-        itemPath: '.modal-body .list-group',
-        itemSelector: '.list-group-item',
-        placeholder: '<div class="placeholder sortable-placeholder"></div>',
-        handle: '.form-check-handle',
-        nested: false
+    $('#lists-setup-modal-content').on('ajaxUpdate', function() {
+        Sortable.create($('#lists-setup-sortable').get(0), {
+            handle: '.form-check-handle',
+        })
     })
 })

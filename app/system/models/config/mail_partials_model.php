@@ -62,15 +62,10 @@ $config['form']['toolbar'] = [
         ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
+            'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -104,7 +99,7 @@ $config['form']['tabs'] = [
             'tab' => 'lang:system::lang.mail_templates.label_body',
             'type' => 'codeeditor',
         ],
-        'plain' => [
+        'text' => [
             'tab' => 'lang:system::lang.mail_templates.label_plain',
             'type' => 'textarea',
             'attributes' => [

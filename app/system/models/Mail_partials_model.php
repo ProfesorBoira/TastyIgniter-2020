@@ -1,4 +1,6 @@
-<?php namespace System\Models;
+<?php
+
+namespace System\Models;
 
 use ApplicationException;
 use Exception;
@@ -10,7 +12,6 @@ use View;
 
 /**
  * MailPartials Model Class
- * @package System
  */
 class Mail_partials_model extends Model
 {
@@ -33,7 +34,7 @@ class Mail_partials_model extends Model
      */
     public $timestamps = TRUE;
 
-    public $casts = [
+    protected $casts = [
         'is_custom' => 'boolean',
     ];
 
