@@ -1,8 +1,10 @@
-<?php namespace System\Controllers;
+<?php
 
-use AdminMenu;
-use ApplicationException;
-use Mail;
+namespace System\Controllers;
+
+use Admin\Facades\AdminMenu;
+use Igniter\Flame\Exception\ApplicationException;
+use Illuminate\Support\Facades\Mail;
 use System\Models\Mail_templates_model;
 
 class MailTemplates extends \Admin\Classes\AdminController
@@ -30,11 +32,13 @@ class MailTemplates extends \Admin\Classes\AdminController
             'title' => 'lang:system::lang.mail_templates.text_new_template_title',
             'redirect' => 'mail_templates/edit/{template_id}',
             'redirectClose' => 'mail_templates',
+            'redirectNew' => 'mail_templates/create',
         ],
         'edit' => [
             'title' => 'lang:system::lang.mail_templates.text_edit_template_title',
             'redirect' => 'mail_templates/edit/{template_id}',
             'redirectClose' => 'mail_templates',
+            'redirectNew' => 'mail_templates/create',
         ],
         'preview' => [
             'title' => 'lang:system::lang.mail_templates.text_preview_template_title',
@@ -78,14 +82,16 @@ class MailTemplates extends \Admin\Classes\AdminController
     public function onTestTemplate($context, $recordId)
     {
         if (!strlen($recordId))
-            throw new ApplicationException('Template id not found');
+            throw new ApplicationException(lang('system::lang.mail_templates.alert_template_id_not_found'));
 
         if (!$model = $this->formFindModelObject($recordId))
-            throw new ApplicationException('Template not found');
+            throw new ApplicationException(lang('system::lang.mail_templates.alert_template_not_found'));
 
         $adminUser = $this->getUser()->staff;
 
-        Mail::queue($model->code, [], function ($message) use ($adminUser) {
+        config()->set('system.suppressTemplateRuntimeNotice', true);
+
+        Mail::send($model->code, [], function ($message) use ($adminUser) {
             $message->to($adminUser->staff_email, $adminUser->staff_name);
         });
 

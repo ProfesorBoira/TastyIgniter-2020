@@ -1,11 +1,11 @@
-<?php namespace Admin\Models;
+<?php
 
-use Model;
+namespace Admin\Models;
+
+use Igniter\Flame\Database\Model;
 
 /**
  * CustomerGroups Model Class
- *
- * @package Admin
  */
 class Customer_groups_model extends Model
 {
@@ -19,7 +19,7 @@ class Customer_groups_model extends Model
      */
     protected $primaryKey = 'customer_group_id';
 
-    public $casts = [
+    protected $casts = [
         'approval' => 'boolean',
     ];
 

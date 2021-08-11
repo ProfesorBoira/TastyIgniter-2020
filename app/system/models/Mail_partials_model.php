@@ -1,16 +1,17 @@
-<?php namespace System\Models;
+<?php
 
-use ApplicationException;
+namespace System\Models;
+
 use Exception;
-use File;
+use Igniter\Flame\Database\Model;
+use Igniter\Flame\Exception\ApplicationException;
 use Igniter\Flame\Mail\MailParser;
-use Model;
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\View;
 use System\Classes\MailManager;
-use View;
 
 /**
  * MailPartials Model Class
- * @package System
  */
 class Mail_partials_model extends Model
 {
@@ -33,7 +34,7 @@ class Mail_partials_model extends Model
      */
     public $timestamps = TRUE;
 
-    public $casts = [
+    protected $casts = [
         'is_custom' => 'boolean',
     ];
 

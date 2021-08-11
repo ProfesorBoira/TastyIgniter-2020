@@ -1,8 +1,10 @@
-<?php namespace System\Database\Migrations;
+<?php
+
+namespace System\Database\Migrations;
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Schema;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Fix nullable and other constraints on columns
@@ -67,16 +69,6 @@ class OptimizeTablesColumns extends Migration
             $table->integer('parent_id')->nullable()->change();
             $table->integer('priority')->default(0)->change();
             $table->string('image')->nullable()->change();
-        };
-    }
-
-    protected function _optimize_coupons()
-    {
-        return function (Blueprint $table) {
-            $table->text('description')->nullable()->change();
-            $table->boolean('status')->nullable()->change();
-            $table->string('validity', 15)->nullable()->change();
-            $table->string('recurring_every', 35)->nullable()->change();
         };
     }
 
@@ -347,17 +339,6 @@ class OptimizeTablesColumns extends Migration
             $table->text('comment')->nullable()->change();
             $table->integer('assignee_id')->nullable()->change();
             $table->boolean('notify')->nullable()->change();
-        };
-    }
-
-    protected function _optimize_reviews()
-    {
-        return function (Blueprint $table) {
-            $table->integer('customer_id')->nullable()->change();
-//            $table->integer('sale_id')->nullable()->change(); @todo remove index before change
-//            $table->string('sale_type')->nullable()->change();
-            $table->string('author')->nullable()->change();
-            $table->text('review_text')->nullable()->change();
         };
     }
 

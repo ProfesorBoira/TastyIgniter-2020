@@ -1,4 +1,6 @@
-<?php namespace System\Database\Seeds;
+<?php
+
+namespace System\Database\Seeds;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +23,6 @@ class DemoSchemaSeeder extends Seeder
 
         $this->seedMenuItems();
 
-        $this->seedCoupons();
     }
 
     protected function seedWorkingHours($locationId)
@@ -94,14 +95,6 @@ class DemoSchemaSeeder extends Seeder
                 }
             }
         }
-    }
-
-    protected function seedCoupons()
-    {
-        if (DB::table('coupons')->count())
-            return;
-
-        DB::table('coupons')->insert($this->getSeedRecords('coupons'));
     }
 
     protected function getSeedRecords($name)

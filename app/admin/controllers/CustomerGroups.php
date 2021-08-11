@@ -1,7 +1,9 @@
-<?php namespace Admin\Controllers;
+<?php
 
+namespace Admin\Controllers;
+
+use Admin\Facades\AdminMenu;
 use Admin\Models\Customer_groups_model;
-use AdminMenu;
 
 class CustomerGroups extends \Admin\Classes\AdminController
 {
@@ -28,11 +30,13 @@ class CustomerGroups extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'customer_groups/edit/{customer_group_id}',
             'redirectClose' => 'customer_groups',
+            'redirectNew' => 'customer_groups/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'customer_groups/edit/{customer_group_id}',
             'redirectClose' => 'customer_groups',
+            'redirectNew' => 'customer_groups/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',

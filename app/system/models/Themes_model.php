@@ -1,17 +1,20 @@
-<?php namespace System\Models;
+<?php
+
+namespace System\Models;
 
 use Exception;
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Database\Traits\Purgeable;
+use Igniter\Flame\Exception\ApplicationException;
+use Illuminate\Support\Facades\Event;
 use Main\Classes\Theme;
 use Main\Classes\ThemeManager;
 use Main\Template\Layout;
-use Model;
 use System\Classes\ComponentManager;
 use System\Classes\ExtensionManager;
 
 /**
  * Themes Model Class
- * @package System
  */
 class Themes_model extends Model
 {
@@ -34,7 +37,7 @@ class Themes_model extends Model
 
     protected $fillable = ['theme_id', 'name', 'code', 'version', 'description', 'data', 'status'];
 
-    public $casts = [
+    protected $casts = [
         'data' => 'serialize',
         'status' => 'boolean',
         'is_default' => 'boolean',
@@ -117,9 +120,9 @@ class Themes_model extends Model
         return optional($this->getTheme())->description ?? $value;
     }
 
-    public function getVersionAttribute($value)
+    public function getVersionAttribute($value = null)
     {
-        return optional($this->getTheme())->version ?? $value;
+        return $value ?? '0.1.0';
     }
 
     public function getAuthorAttribute($value)
@@ -178,7 +181,7 @@ class Themes_model extends Model
 
     /**
      * Attach the theme object to this class
-     * @return boolean
+     * @return bool
      */
     public function applyThemeManager()
     {
@@ -254,7 +257,6 @@ class Themes_model extends Model
         $installedThemes = [];
         $themeManager = ThemeManager::instance();
         foreach ($themeManager->paths() as $code => $path) {
-
             if (!($themeObj = $themeManager->findTheme($code))) continue;
 
             $installedThemes[] = $name = $themeObj->name ?? $code;
@@ -265,7 +267,7 @@ class Themes_model extends Model
             $theme = self::firstOrNew(['code' => $name]);
             $theme->name = $themeObj->label ?? title_case($code);
             $theme->code = $name;
-            $theme->version = $themeObj->version ?? '1.0.0';
+            $theme->version = $theme->version ?? '0.1.0';
             $theme->description = $themeObj->description ?? '';
             $theme->save();
         }
@@ -308,12 +310,25 @@ class Themes_model extends Model
         if (empty($code) OR !$theme = self::whereCode($code)->first())
             return FALSE;
 
+        $extensionManager = ExtensionManager::instance();
+
+        $notFound = [];
+        foreach ($theme->getTheme()->requires as $require => $version) {
+            if (!$extensionManager->hasExtension($require)) {
+                $notFound[] = $require;
+            }
+            else {
+                $extensionManager->installExtension($require);
+            }
+        }
+
+        if (count($notFound))
+            throw new ApplicationException(sprintf('The following required extensions must be installed before activating this theme, %s', implode(', ', $notFound)));
+
         params()->set('default_themes.main', $theme->code);
         params()->save();
 
-        foreach ($theme->getTheme()->requires as $require => $version) {
-            ExtensionManager::instance()->installExtension($require);
-        }
+        Event::fire('main.theme.activated', [$theme]);
 
         return $theme;
     }
@@ -344,8 +359,7 @@ class Themes_model extends Model
         do {
             $uniqueCode = $code.($suffix ? '-'.$suffix : '');
             $suffix = strtolower(str_random('3'));
-        } // Already in the DB? Fail. Try again
-        while (self::themeCodeExists($uniqueCode));
+        } while (self::themeCodeExists($uniqueCode)); // Already in the DB? Fail. Try again
 
         return $uniqueCode;
     }
@@ -353,11 +367,11 @@ class Themes_model extends Model
     /**
      * Checks whether a code exists in the database or not
      *
-     * @param $uniqueCode
+     * @param string $uniqueCode
      * @return bool
      */
     protected static function themeCodeExists($uniqueCode)
     {
-        return (self::where('code', '=', $uniqueCode)->limit(1)->count() > 0);
+        return self::where('code', '=', $uniqueCode)->limit(1)->count() > 0;
     }
 }

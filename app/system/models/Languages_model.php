@@ -1,12 +1,14 @@
-<?php namespace System\Models;
+<?php
+
+namespace System\Models;
 
 use Igniter\Flame\Database\Traits\Purgeable;
+use Igniter\Flame\Exception\ValidationException;
 use Igniter\Flame\Translation\Models\Language;
 use Illuminate\Support\Facades\Lang;
 
 /**
  * Languages Model Class
- * @package System
  */
 class Languages_model extends Language
 {
@@ -14,7 +16,7 @@ class Languages_model extends Language
 
     protected $purgeable = ['translations'];
 
-    public $casts = [
+    protected $casts = [
         'original_id' => 'integer',
         'status' => 'boolean',
     ];
@@ -30,6 +32,26 @@ class Languages_model extends Language
      * @var array
      */
     protected $guarded = [];
+
+    /**
+     * @var array Object cache of self, by code.
+     */
+    protected static $localesCache = [];
+
+    /**
+     * @var array A cache of supported locales.
+     */
+    protected static $supportedLocalesCache;
+
+    /**
+     * @var self Default language cache.
+     */
+    protected static $defaultLanguage;
+
+    /**
+     * @var self Active language cache.
+     */
+    protected static $activeLanguage;
 
     public static function applySupportedLanguages()
     {
@@ -52,6 +74,8 @@ class Languages_model extends Language
 
     protected function afterSave()
     {
+        self::applySupportedLanguages();
+
         $this->restorePurgedValues();
 
         if (array_key_exists('translations', $this->attributes))
@@ -78,10 +102,87 @@ class Languages_model extends Language
     // Helpers
     //
 
+    public static function findByCode($code = null)
+    {
+        if (!$code)
+            return null;
+
+        if (isset(self::$localesCache[$code]))
+            return self::$localesCache[$code];
+
+        return self::$localesCache[$code] = self::whereCode($code)->first();
+    }
+
+    public function makeDefault()
+    {
+        if (!$this->status) {
+            throw new ValidationException(['status' => sprintf(
+                lang('admin::lang.alert_error_set_default'), $this->name
+            )]);
+        }
+
+        setting('default_language', $this->code);
+        setting()->save();
+    }
+
+    /**
+     * Returns the default language defined.
+     * @return self
+     */
+    public static function getDefault()
+    {
+        if (self::$defaultLanguage !== null) {
+            return self::$defaultLanguage;
+        }
+
+        $defaultLanguage = self::isEnabled()
+            ->where('code', setting('default_language'))
+            ->first();
+
+        if (!$defaultLanguage) {
+            if ($defaultLanguage = self::isEnabled()->first()) {
+                $defaultLanguage->makeDefault();
+            }
+        }
+
+        return self::$defaultLanguage = $defaultLanguage;
+    }
+
     public function isDefault()
     {
-        return ($this->code == setting('default_language'));
+        return $this->code == setting('default_language');
     }
+
+    public static function getActiveLocale()
+    {
+        if (self::$activeLanguage !== null) {
+            return self::$activeLanguage;
+        }
+
+        $activeLanguage = self::isEnabled()
+            ->where('code', app()->getLocale())
+            ->first();
+
+        return self::$activeLanguage = $activeLanguage;
+    }
+
+    public static function listSupported()
+    {
+        if (self::$supportedLocalesCache) {
+            return self::$supportedLocalesCache;
+        }
+
+        return self::$supportedLocalesCache = self::isEnabled()->pluck('name', 'code')->all();
+    }
+
+    public static function supportsLocale()
+    {
+        return count(self::listSupported()) > 1;
+    }
+
+    //
+    // Translations
+    //
 
     public function listAllFiles()
     {

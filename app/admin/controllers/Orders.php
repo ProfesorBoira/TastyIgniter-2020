@@ -1,6 +1,8 @@
-<?php namespace Admin\Controllers;
+<?php
 
-use AdminMenu;
+namespace Admin\Controllers;
+
+use Admin\Facades\AdminMenu;
 use Igniter\Flame\Exception\ApplicationException;
 
 class Orders extends \Admin\Classes\AdminController
@@ -41,16 +43,33 @@ class Orders extends \Admin\Classes\AdminController
         'configFile' => 'orders_model',
     ];
 
-    protected $requiredPermissions = ['Admin.Orders', 'Admin.AssignOrders'];
+    protected $requiredPermissions = [
+        'Admin.Orders',
+        'Admin.AssignOrders',
+        'Admin.DeleteOrders',
+    ];
 
     public function __construct()
     {
         parent::__construct();
 
-        if ($this->action === 'assigned')
-            $this->requiredPermissions = null;
-
         AdminMenu::setContext('orders', 'sales');
+    }
+
+    public function index_onDelete()
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteOrders'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\ListController')->index_onDelete();
+    }
+
+    public function edit_onDelete($context, $recordId)
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteOrders'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\FormController')->edit_onDelete($context, $recordId);
     }
 
     public function invoice($context, $recordId = null)
@@ -58,7 +77,7 @@ class Orders extends \Admin\Classes\AdminController
         $model = $this->formFindModelObject($recordId);
 
         if (!$model->hasInvoice())
-            throw new ApplicationException('Invoice has not yet been generated');
+            throw new ApplicationException(lang('admin::lang.orders.alert_invoice_not_generated'));
 
         $this->vars['model'] = $model;
 

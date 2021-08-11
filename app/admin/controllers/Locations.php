@@ -1,10 +1,12 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use Admin\Facades\AdminLocation;
+use Admin\Facades\AdminMenu;
 use Admin\Models\Locations_model;
-use AdminMenu;
 use Exception;
-use Geocoder;
+use Igniter\Flame\Geolite\Facades\Geocoder;
 
 class Locations extends \Admin\Classes\AdminController
 {
@@ -31,11 +33,13 @@ class Locations extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'locations/edit/{location_id}',
             'redirectClose' => 'locations',
+            'redirectNew' => 'locations/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'locations/edit/{location_id}',
             'redirectClose' => 'locations',
+            'redirectNew' => 'locations/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -112,10 +116,16 @@ class Locations extends \Admin\Classes\AdminController
         return $attributes;
     }
 
+    public function listExtendQuery($query)
+    {
+        if (!is_null($ids = AdminLocation::getAll()))
+            $query->whereIn('location_id', $ids);
+    }
+
     public function formExtendQuery($query)
     {
-        if ($locationId = $this->getLocationId())
-            $query->where('location_id', $locationId);
+        if (!is_null($ids = AdminLocation::getAll()))
+            $query->whereIn('location_id', $ids);
     }
 
     public function formAfterSave($model)
@@ -124,5 +134,15 @@ class Locations extends \Admin\Classes\AdminController
             if ($logs = Geocoder::getLogs())
                 flash()->error(implode(PHP_EOL, $logs))->important();
         }
+    }
+
+    public function mapViewCenterCoords()
+    {
+        $model = $this->getFormModel();
+
+        return [
+            'lat' => $model->location_lat,
+            'lng' => $model->location_lng,
+        ];
     }
 }

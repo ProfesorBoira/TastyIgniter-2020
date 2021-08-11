@@ -1,6 +1,8 @@
-<?php namespace System\Traits;
+<?php
 
-use Session;
+namespace System\Traits;
+
+use Illuminate\Support\Facades\Session;
 
 trait SessionMaker
 {

@@ -8,30 +8,37 @@ use Admin\Classes\PermissionManager;
 use Admin\Classes\Template;
 use Admin\Classes\User;
 use Admin\Helpers\Admin as AdminHelper;
-use App;
-use Config;
-use Event;
 use Igniter\Flame\ActivityLog\ActivityLogServiceProvider;
 use Igniter\Flame\Currency\CurrencyServiceProvider;
 use Igniter\Flame\Foundation\Providers\AppServiceProvider;
 use Igniter\Flame\Geolite\GeoliteServiceProvider;
+use Igniter\Flame\Pagic\Cache\FileSystem as FileCache;
+use Igniter\Flame\Pagic\Environment;
+use Igniter\Flame\Pagic\Loader;
 use Igniter\Flame\Pagic\PagicServiceProvider;
+use Igniter\Flame\Pagic\Parsers\FileParser;
+use Igniter\Flame\Setting\Facades\Setting;
 use Igniter\Flame\Support\Facades\File;
 use Igniter\Flame\Support\HelperServiceProvider;
 use Igniter\Flame\Translation\Drivers\Database;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Validator;
 use Main\Classes\Customer;
-use Request;
-use Setting;
 use System\Classes\ErrorHandler;
 use System\Classes\ExtensionManager;
 use System\Classes\MailManager;
 use System\Helpers\ValidationHelper;
 use System\Libraries\Assets;
 use System\Models\Settings_model;
+use System\Template\Extension\BladeExtension;
 
 class ServiceProvider extends AppServiceProvider
 {
@@ -54,6 +61,7 @@ class ServiceProvider extends AppServiceProvider
         $this->registerSchedule();
         $this->registerConsole();
         $this->registerErrorHandler();
+        $this->registerPagicParser();
         $this->registerMailer();
         $this->registerPaginator();
         $this->registerAssets();
@@ -304,7 +312,7 @@ class ServiceProvider extends AppServiceProvider
 
         $this->app->resolving('translator.localization', function ($localization, $app) {
             $app['config']->set('localization.locale', setting('default_language', $app['config']['app.locale']));
-            $app['config']->set('localization.supportedLocales', setting('supported_languages', []));
+            $app['config']->set('localization.supportedLocales', setting('supported_languages', []) ?: ['en']);
             $app['config']->set('localization.detectBrowserLocale', (bool)setting('detect_language', FALSE));
         });
 
@@ -316,6 +324,16 @@ class ServiceProvider extends AppServiceProvider
             $app['config']->set('geocoder.providers.nominatim.region', $region);
 
             $app['config']->set('geocoder.providers.google.apiKey', setting('maps_api_key'));
+            $app['config']->set('geocoder.precision', setting('geocoder_boundary_precision'));
+        });
+
+        Event::listen(CommandStarting::class, function () {
+            config()->set('system.activityRecordsTTL', (int)setting('activity_log_timeout', 60));
+        });
+
+        $this->app->resolving('system.setting', function ($setting, $app) {
+            if (strlen($locationMode = setting('site_location_mode')))
+                $app['config']->set('system.locationMode', $locationMode);
         });
     }
 
@@ -326,17 +344,11 @@ class ServiceProvider extends AppServiceProvider
         });
 
         Assets::registerCallback(function (Assets $manager) {
-            // System asset bundles
-            $manager->registerBundle('scss',
-                '~/app/system/assets/ui/scss/flame.scss',
-                '~/app/system/assets/ui/flame.css',
-                'admin'
-            );
             $manager->registerBundle('js', [
-                '~/app/system/assets/node_modules/jquery/dist/jquery.min.js',
-                '~/app/system/assets/node_modules/popper.js/dist/umd/popper.min.js',
-                '~/app/system/assets/node_modules/bootstrap/dist/js/bootstrap.min.js',
-                '~/app/system/assets/node_modules/sweetalert/dist/sweetalert.min.js',
+                '~/app/admin/assets/node_modules/jquery/dist/jquery.min.js',
+                '~/app/admin/assets/node_modules/popper.js/dist/umd/popper.min.js',
+                '~/app/admin/assets/node_modules/bootstrap/dist/js/bootstrap.min.js',
+                '~/app/admin/assets/node_modules/sweetalert/dist/sweetalert.min.js',
                 '~/app/system/assets/ui/js/vendor/waterfall.min.js',
                 '~/app/system/assets/ui/js/vendor/transition.js',
                 '~/app/system/assets/ui/js/app.js',
@@ -346,15 +358,6 @@ class ServiceProvider extends AppServiceProvider
                 '~/app/system/assets/ui/js/toggler.js',
                 '~/app/system/assets/ui/js/trigger.js',
             ], '~/app/system/assets/ui/flame.js', 'admin');
-
-            // Admin asset bundles
-            $manager->registerBundle('scss', '~/app/admin/assets/scss/admin.scss', null, 'admin');
-            $manager->registerBundle('js', [
-                '~/app/system/assets/node_modules/js-cookie/src/js.cookie.js',
-                '~/app/system/assets/node_modules/select2/dist/js/select2.min.js',
-                '~/app/system/assets/node_modules/metismenu/dist/metisMenu.min.js',
-                '~/app/admin/assets/js/src/app.js',
-            ], '~/app/admin/assets/js/admin.js', 'admin');
         });
     }
 
@@ -399,11 +402,14 @@ class ServiceProvider extends AppServiceProvider
 
     protected function registerSchedule()
     {
-        Event::listen('console.schedule', function ($schedule) {
+        Event::listen('console.schedule', function (Schedule $schedule) {
             // Check for system updates every 12 hours
             $schedule->call(function () {
                 Classes\UpdateManager::instance()->requestUpdateList(TRUE);
-            })->cron('0 */12 * * *')->evenInMaintenanceMode();
+            })->name('System Updates Checker')->cron('0 */12 * * *')->evenInMaintenanceMode();
+
+            // Cleanup activity log
+            $schedule->command('activitylog:cleanup')->name('Activity Log Cleanup')->daily();
         });
     }
 
@@ -435,8 +441,8 @@ class ServiceProvider extends AppServiceProvider
                 'Site.Updates' => [
                     'label' => 'system::lang.permissions.updates', 'group' => 'system::lang.permissions.name',
                 ],
-                'Admin.ErrorLogs' => [
-                    'label' => 'system::lang.permissions.error_logs', 'group' => 'system::lang.permissions.name',
+                'Admin.SystemLogs' => [
+                    'label' => 'system::lang.permissions.system_logs', 'group' => 'system::lang.permissions.name',
                 ],
             ]);
         });
@@ -474,6 +480,21 @@ class ServiceProvider extends AppServiceProvider
                     'form' => '~/app/system/models/config/advanced_settings',
                 ],
             ]);
+        });
+    }
+
+    protected function registerPagicParser()
+    {
+        FileParser::setCache(new FileCache(config('system.parsedTemplateCachePath')));
+
+        App::singleton('pagic.environment', function () {
+            $pagic = new Environment(new Loader, [
+                'cache' => new FileCache(config('view.compiled')),
+            ]);
+
+            $pagic->addExtension(new BladeExtension());
+
+            return $pagic;
         });
     }
 }

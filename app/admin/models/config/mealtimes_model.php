@@ -1,6 +1,14 @@
 <?php
 $config['list']['filter'] = [
     'scopes' => [
+        'location' => [
+            'label' => 'lang:admin::lang.text_filter_location',
+            'type' => 'select',
+            'scope' => 'whereHasLocation',
+            'modelClass' => 'Admin\Models\Locations_model',
+            'nameFrom' => 'location_name',
+            'locationAware' => TRUE,
+        ],
         'status' => [
             'label' => 'lang:admin::lang.text_filter_status',
             'type' => 'switch',
@@ -57,22 +65,29 @@ $config['list']['columns'] = [
         'label' => 'lang:admin::lang.column_id',
         'invisible' => TRUE,
     ],
-
+    'locations' => [
+        'label' => 'lang:admin::lang.column_location',
+        'type' => 'text',
+        'relation' => 'locations',
+        'select' => 'location_name',
+        'locationAware' => TRUE,
+        'invisible' => TRUE,
+    ],
 ];
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default',
+            'href' => 'mealtimes',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
+            'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -93,11 +108,12 @@ $config['form']['fields'] = [
         'type' => 'text',
         'span' => 'left',
     ],
-    'mealtime_status' => [
-        'label' => 'lang:admin::lang.label_status',
-        'type' => 'switch',
-        'default' => TRUE,
+    'locations' => [
+        'label' => 'lang:admin::lang.label_location',
+        'type' => 'relation',
         'span' => 'right',
+        'valueFrom' => 'locations',
+        'nameFrom' => 'location_name',
     ],
     'start_time' => [
         'label' => 'lang:admin::lang.mealtimes.label_start_time',
@@ -110,6 +126,12 @@ $config['form']['fields'] = [
         'type' => 'datepicker',
         'mode' => 'time',
         'span' => 'right',
+    ],
+    'mealtime_status' => [
+        'label' => 'lang:admin::lang.label_status',
+        'type' => 'switch',
+        'default' => TRUE,
+        'span' => 'left',
     ],
 ];
 

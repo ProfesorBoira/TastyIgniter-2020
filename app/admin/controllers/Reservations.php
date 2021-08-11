@@ -1,8 +1,11 @@
-<?php namespace Admin\Controllers;
+<?php
 
+namespace Admin\Controllers;
+
+use Admin\Facades\AdminMenu;
 use Admin\Models\Reservations_model;
-use AdminMenu;
 use Exception;
+use Igniter\Flame\Exception\ApplicationException;
 
 class Reservations extends \Admin\Classes\AdminController
 {
@@ -41,11 +44,13 @@ class Reservations extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'reservations/edit/{reservation_id}',
             'redirectClose' => 'reservations',
+            'redirectNew' => 'reservations/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'reservations/edit/{reservation_id}',
             'redirectClose' => 'reservations',
+            'redirectNew' => 'reservations/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -57,27 +62,46 @@ class Reservations extends \Admin\Classes\AdminController
         'configFile' => 'reservations_model',
     ];
 
-    protected $requiredPermissions = ['Admin.Reservations', 'Admin.AssignReservations'];
+    protected $requiredPermissions = [
+        'Admin.Reservations',
+        'Admin.AssignReservations',
+        'Admin.DeleteReservations',
+    ];
 
     public function __construct()
     {
         parent::__construct();
 
-        if ($this->action === 'assigned')
-            $this->requiredPermissions = null;
-
         AdminMenu::setContext('reservations', 'sales');
+    }
+
+    public function index_onDelete()
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteReservations'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\ListController')->index_onDelete();
+    }
+
+    public function edit_onDelete()
+    {
+        if (!$this->getUser()->hasPermission('Admin.DeleteReservations'))
+            throw new ApplicationException(lang('admin::lang.alert_user_restricted'));
+
+        return $this->asExtension('Admin\Actions\FormController')->edit_onDelete();
     }
 
     public function calendarGenerateEvents($startAt, $endAt)
     {
-        return Reservations_model::listCalendarEvents($startAt, $endAt);
+        return Reservations_model::listCalendarEvents(
+            $startAt, $endAt, $this->getLocationId()
+        );
     }
 
     public function calendarUpdateEvent($eventId, $startAt, $endAt)
     {
         if (!$reservation = Reservations_model::find($eventId))
-            throw new Exception('No matching reservation found');
+            throw new Exception(lang('admin::lang.reservations.alert_no_reservation_found'));
 
         $startAt = make_carbon($startAt);
         $endAt = make_carbon($endAt);

@@ -90,6 +90,11 @@
             $button = $(event.target),
             $findValue = $('[data-find-value]', $button.closest('.media-finder'))
 
+        if ($.ti.mediaManager === undefined) {
+            $.ti.flashMessage({text: 'Media manager widget is not loaded', class:'danger'})
+            return
+        }
+
         new $.ti.mediaManager.modal({
             alias: 'mediamanager',
             selectMode: this.options.isMulti ? 'multi' : 'single',

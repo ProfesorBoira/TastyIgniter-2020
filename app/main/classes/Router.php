@@ -2,13 +2,13 @@
 
 namespace Main\Classes;
 
-use Cache;
-use Config;
-use Event;
-use File;
 use Igniter\Flame\Router\Router as FlameRouter;
+use Igniter\Flame\Support\Facades\File;
 use Igniter\Flame\Support\RouterHelper;
-use Lang;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Lang;
 use Main\Template\Page as PageTemplate;
 
 /**
@@ -35,8 +35,6 @@ use Main\Template\Page as PageTemplate;
  * /pages/:page_name?|^[a-z0-9\-]+$ - this will match /pages/my-page</pre>
  *
  * Based on october\cms\Router
- *
- * @package Main
  */
 class Router
 {
@@ -156,7 +154,7 @@ class Router
     public function findByFile($fileName, $parameters = [])
     {
         if (!strlen(File::extension($fileName))) {
-            $fileName .= '.php';
+            $fileName .= '.blade.php';
         }
 
         return $this->getRouterObject()->url($fileName, $parameters);
@@ -202,7 +200,7 @@ class Router
      * The URL map can is cached. The clearUrlMap() method resets the cache. By default
      * the map is updated every time when a page is saved in the back-end, or
      * when the interval defined with the system.urlMapCacheTtl expires.
-     * @return boolean Returns true if the URL map was loaded from the cache. Otherwise returns false.
+     * @return bool Returns true if the URL map was loaded from the cache. Otherwise returns false.
      */
     protected function loadUrlMap()
     {

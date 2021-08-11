@@ -1,7 +1,9 @@
-<?php namespace System\Controllers;
+<?php
 
+namespace System\Controllers;
+
+use Admin\Facades\AdminMenu;
 use Admin\Widgets\Form;
-use AdminMenu;
 use System\Classes\ExtensionManager;
 use System\Classes\LanguageManager;
 use System\Models\Languages_model;
@@ -34,11 +36,13 @@ class Languages extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'languages/edit/{language_id}',
             'redirectClose' => 'languages',
+            'redirectNew' => 'languages/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'languages/edit/{language_id}',
             'redirectClose' => 'languages',
+            'redirectNew' => 'languages/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -120,7 +124,7 @@ class Languages extends \Admin\Classes\AdminController
 
         $this->vars['totalStrings'] = $this->totalStrings;
         $this->vars['totalTranslated'] = $this->totalTranslated;
-        $this->vars['translatedProgress'] = $this->totalStrings ? round(($this->totalTranslated * 100) / $this->totalStrings) : 0;
+        $this->vars['translatedProgress'] = $this->totalStrings ? round(($this->totalTranslated * 100) / $this->totalStrings, 2) : 0;
     }
 
     protected function getFilterValue($key, $default = null)

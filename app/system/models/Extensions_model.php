@@ -1,15 +1,16 @@
-<?php namespace System\Models;
+<?php
 
-use File;
+namespace System\Models;
+
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Exception\ApplicationException;
 use Igniter\Flame\Mail\Markdown;
+use Igniter\Flame\Support\Facades\File;
 use Main\Classes\ThemeManager;
-use Model;
 use System\Classes\ExtensionManager;
 
 /**
  * Extensions Model Class
- * @package System
  */
 class Extensions_model extends Model
 {
@@ -67,6 +68,11 @@ class Extensions_model extends Model
         return $this->class ? $this->class->extensionMeta() : [];
     }
 
+    public function getVersionAttribute($value = null)
+    {
+        return $value ?? '0.1.0';
+    }
+
     public function getTitleAttribute()
     {
         return array_get($this->meta, 'name', 'Undefined extension title');
@@ -112,11 +118,11 @@ class Extensions_model extends Model
 
     public function getReadmeAttribute($value)
     {
-        $extensionPath = ExtensionManager::instance()->path($this->name);
-        if (!$readmePath = File::existsInsensitive($extensionPath.'readme.md'))
+        $readmePath = ExtensionManager::instance()->path($this->name).'readme.md';
+        if (!$readmePath = File::existsInsensitive($readmePath))
             return $value;
 
-        return (new Markdown)->parse(File::get($readmePath));
+        return Markdown::parseFile($readmePath)->toHtml();
     }
 
     //
@@ -134,7 +140,7 @@ class Extensions_model extends Model
 
     /**
      * Sets the extension class as a property of this class
-     * @return boolean
+     * @return bool
      */
     public function applyExtensionClass()
     {
@@ -167,7 +173,6 @@ class Extensions_model extends Model
 
             $enableExtension = ($model->exists AND !$extension->disabled);
 
-            $model->version = array_get($extension->extensionMeta(), 'version');
             $model->save();
 
             $extensionManager->updateInstalledExtensions($code, $enableExtension);

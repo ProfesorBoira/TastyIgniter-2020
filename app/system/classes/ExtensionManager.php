@@ -1,15 +1,17 @@
-<?php namespace System\Classes;
+<?php
 
-use App;
-use ApplicationException;
-use File;
+namespace System\Classes;
+
+use Igniter\Flame\Exception\ApplicationException;
+use Igniter\Flame\Exception\SystemException;
+use Igniter\Flame\Support\Facades\File;
 use Igniter\Flame\Traits\Singleton;
-use Lang;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\View;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use System\Models\Extensions_model;
-use SystemException;
-use View;
 use ZipArchive;
 
 /**
@@ -21,14 +23,9 @@ class ExtensionManager
     use Singleton;
 
     /**
-     * @var
+     * The application instance, since Extensions are an extension of a Service Provider
      */
-    public $routes;
-
-    /**
-     * @var
-     */
-    public $registry;
+    protected $app;
 
     /**
      * @var array used for storing extension information objects.
@@ -67,6 +64,7 @@ class ExtensionManager
 
     public function initialize()
     {
+        $this->app = App::make('app');
         $this->metaFile = storage_path('system/installed.json');
         $this->loadInstalled();
         $this->loadExtensions();
@@ -87,7 +85,6 @@ class ExtensionManager
     public function path($extension = null, $folder = null)
     {
         foreach ($this->folders() as $extensionFolder) {
-
             $extension = $this->getNamePath($this->checkName($extension));
 
             // Check each folder for the extension's folder.
@@ -288,7 +285,6 @@ class ExtensionManager
 
         $loopCount = 0;
         while (count($checklist) > 0) {
-
             if (++$loopCount > 999) {
                 throw new ApplicationException('Too much recursion');
             }
@@ -331,7 +327,7 @@ class ExtensionManager
         $it->rewind();
 
         while ($it->valid()) {
-            if (($it->getDepth() > 1) AND $it->isFile() AND (strtolower($it->getFilename()) == "extension.php")) {
+            if (($it->getDepth() > 1) AND $it->isFile() AND (strtolower($it->getFilename()) == 'extension.php')) {
                 $filePath = dirname($it->getPathname());
                 $extensionName = basename($filePath);
                 $extensionVendor = basename(dirname($filePath));
@@ -347,7 +343,7 @@ class ExtensionManager
     /**
      * Finds all available extensions and loads them in to the $extensions array.
      * @return array
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function loadExtensions()
     {
@@ -367,7 +363,7 @@ class ExtensionManager
      * @param string $path Eg: base_path().'/extensions/directory_name';
      *
      * @return object|bool
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function loadExtension($name, $path)
     {
@@ -390,7 +386,7 @@ class ExtensionManager
             throw new SystemException("Missing Extension class '{$class}' in '{$identifier}', create the Extension class to override extensionMeta() method.");
         }
 
-        $classObj = new $class(App::getInstance());
+        $classObj = new $class($this->app);
 
         // Check for disabled extensions
         if ($this->isDisabled($identifier)) {
@@ -472,10 +468,11 @@ class ExtensionManager
 
         $path = $this->getNamePath($name);
         $extensionPath = extension_path($path);
+        $extensionNamespace = strtolower($name);
 
         $langPath = $extensionPath.'/language';
         if (File::isDirectory($langPath)) {
-            Lang::addNamespace($name, $langPath);
+            Lang::addNamespace($extensionNamespace, $langPath);
         }
 
         if ($extension->disabled) {
@@ -489,6 +486,12 @@ class ExtensionManager
         }
 
         $extension->register();
+
+        // Register config path
+        $configPath = $extensionPath.'/config';
+        if (File::isDirectory($configPath)) {
+            $this->mergeConfigFrom($extensionNamespace, $configPath);
+        }
 
         // Register views path
         $viewsPath = $extensionPath.'/views';
@@ -755,8 +758,7 @@ class ExtensionManager
         // set extension migration to the latest version
         UpdateManager::instance()->migrateExtension($model->name);
 
-        $extensionMeta = $extension->extensionMeta();
-        $model->version = $version ?? array_get($extensionMeta, 'version');
+        $model->version = $version ?? $this->getComposerInstalledVersion($extension) ?? $model->version;
         $model->save();
 
         $this->updateInstalledExtensions($model->name);
@@ -806,5 +808,44 @@ class ExtensionManager
         $this->updateInstalledExtensions($code, null);
 
         return TRUE;
+    }
+
+    protected function mergeConfigFrom(string $namespace, string $path)
+    {
+        if ($this->app->configurationIsCached())
+            return;
+
+        foreach (File::glob($path.'/*.php') as $configPath) {
+            $configKey = sprintf('%s::%s', $namespace, array_get(pathinfo($configPath), 'filename'));
+            $this->app['config']->set($configKey, array_merge(
+                require $configPath, $this->app['config']->get($configKey, [])
+            ));
+        }
+    }
+
+    protected function getComposerInstalledVersion($extension)
+    {
+        if (!$extensionCode = array_get($extension->extensionMeta(), 'code'))
+            return null;
+
+        if (!File::exists(sprintf('%s/composer.json', $this->path($extensionCode))))
+            return null;
+
+        if (!File::exists($path = base_path('/vendor/composer/installed.json')))
+            return null;
+
+        $installed = json_decode(File::get($path), TRUE);
+
+        // Structure of the installed.json manifest in different in Composer 2.0
+        $installed = $installed['packages'] ?? $installed;
+
+        $package = collect($installed)->first(function ($package) use ($extensionCode) {
+            if (array_get($package, 'type') !== 'tastyigniter-extension')
+                return FALSE;
+
+            return array_get($package, 'extra.tastyigniter-extension.code') === $extensionCode;
+        });
+
+        return array_get($package ?? [], 'version');
     }
 }

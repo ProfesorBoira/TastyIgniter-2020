@@ -1,19 +1,20 @@
-<?php namespace Main\Classes;
+<?php
 
-use App;
-use File;
+namespace Main\Classes;
+
 use Igniter\Flame\Exception\ApplicationException;
+use Igniter\Flame\Exception\SystemException;
+use Igniter\Flame\Support\Facades\File;
 use Igniter\Flame\Traits\Singleton;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
-use Lang;
+use Illuminate\Support\Facades\Lang;
 use System\Libraries\Assets;
 use System\Models\Themes_model;
-use SystemException;
 use ZipArchive;
 
 /**
  * Theme Manager Class
- * @package Main
  */
 class ThemeManager
 {
@@ -61,18 +62,21 @@ class ThemeManager
     public static function addAssetsFromActiveThemeManifest(Assets $manager)
     {
         $instance = self::instance();
-        $theme = $instance->getActiveTheme();
-        $manager->addFromManifest($theme->publicPath.'/_meta/assets.json');
+        if (!$theme = $instance->getActiveTheme())
+            return;
 
-        if ($theme->hasParent()) {
+        if (File::exists($theme->path.'/_meta/assets.json')) {
+            $manager->addFromManifest($theme->publicPath.'/_meta/assets.json');
+        }
+        elseif ($theme->hasParent()) {
             $parentTheme = $instance->findTheme($theme->getParentName());
             $manager->addFromManifest($parentTheme->publicPath.'/_meta/assets.json');
         }
     }
 
-    public static function applyAssetVariablesOnCombinerFilters(array $filters)
+    public static function applyAssetVariablesOnCombinerFilters(array $filters, Theme $theme = null)
     {
-        $theme = self::instance()->getActiveTheme();
+        $theme = !is_null($theme) ? $theme : self::instance()->getActiveTheme();
 
         if (!$theme OR !$theme->hasCustomData())
             return;
@@ -116,7 +120,7 @@ class ThemeManager
     /**
      * Finds all available themes and loads them in to the $themes array.
      * @return array
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function loadThemes()
     {
@@ -134,7 +138,7 @@ class ThemeManager
      * @param string $path Ex: base_path().'directory_name';
      *
      * @return bool|object
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function loadTheme($themeCode, $path)
     {
@@ -271,7 +275,7 @@ class ThemeManager
             return FALSE;
         }
 
-        return (rtrim($themeCode, '/') == $this->getActiveThemeCode());
+        return rtrim($themeCode, '/') == $this->getActiveThemeCode();
     }
 
     /**
@@ -331,9 +335,7 @@ class ThemeManager
 
     public function isLocked($themeCode)
     {
-        $theme = $this->findTheme($themeCode);
-
-        return (bool)$theme->locked;
+        return (bool)optional($this->findTheme($themeCode))->locked;
     }
 
     public function checkParent($themeCode)
@@ -344,6 +346,16 @@ class ThemeManager
         }
 
         return FALSE;
+    }
+
+    public function isLockedPath($path)
+    {
+        if (starts_with($path, App::themesPath().'/'))
+            $path = substr($path, strlen(App::themesPath().'/'));
+
+        $themeCode = str_before($path, '/');
+
+        return $this->isLocked($themeCode);
     }
 
     //
@@ -384,7 +396,7 @@ class ThemeManager
         if (is_null($base)) {
             $base = ['/'];
         }
-        else if (!is_array($base)) {
+        elseif (!is_array($base)) {
             $base = [$base];
         }
 
@@ -470,8 +482,11 @@ class ThemeManager
         [$dirName, $fileName] = $this->getFileNameParts($filePath, $theme);
         [$newDirName, $newFileName] = $this->getFileNameParts($newFilePath, $theme);
 
-        if (!$source = $theme->onTemplate($dirName)->find($fileName))
+        if (!$template = $theme->onTemplate($dirName)->find($fileName))
             throw new ApplicationException("Theme template file not found: $filePath");
+
+        if ($this->isLockedPath($template->getFilePath()))
+            throw new ApplicationException(lang('system::lang.themes.alert_theme_path_locked'));
 
         $oldFilePath = $theme->path.'/'.$dirName.'/'.$fileName;
         $newFilePath = $theme->path.'/'.$newDirName.'/'.$newFileName;
@@ -479,7 +494,7 @@ class ThemeManager
         if ($oldFilePath == $newFilePath)
             throw new ApplicationException("Theme template file already exists: $filePath");
 
-        return $source->update(['fileName' => $newFileName]);
+        return $template->update(['fileName' => $newFileName]);
     }
 
     /**
@@ -496,10 +511,13 @@ class ThemeManager
 
         [$dirName, $fileName] = $this->getFileNameParts($filePath, $theme);
 
-        if (!$source = $theme->onTemplate($dirName)->find($fileName))
+        if (!$template = $theme->onTemplate($dirName)->find($fileName))
             throw new ApplicationException("Theme template file not found: $filePath");
 
-        return $source->delete();
+        if ($this->isLockedPath($template->getFilePath()))
+            throw new ApplicationException(lang('system::lang.themes.alert_theme_path_locked'));
+
+        return $template->delete();
     }
 
     /**
@@ -508,7 +526,7 @@ class ThemeManager
      * @param string $zipPath The path to the zip folder
      *
      * @return bool
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function extractTheme($zipPath)
     {
@@ -563,6 +581,22 @@ class ThemeManager
         return TRUE;
     }
 
+    public function installTheme($code, $version = null)
+    {
+        $model = Themes_model::firstOrNew(['code' => $code]);
+
+        if (!$themeObj = $this->findTheme($model->code))
+            return FALSE;
+
+        $model->name = $themeObj->label ?? title_case($code);
+        $model->code = $code;
+        $model->version = $version ?? $model->version;
+        $model->description = $themeObj->description ?? '';
+        $model->save();
+
+        return TRUE;
+    }
+
     /**
      * @param \System\Models\Themes_model $model
      * @return \System\Models\Themes_model
@@ -583,7 +617,6 @@ class ThemeManager
         $themeConfig = [
             'name' => $parentTheme->label.' [child]',
             'code' => $childThemeCode,
-            'version' => $parentTheme->version ?? '1.0.0',
             'description' => $parentTheme->description,
         ];
 
@@ -602,7 +635,7 @@ class ThemeManager
      * @param string $themeCode
      *
      * @return array|null
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
     public function getMetaFromFile($themeCode)
@@ -625,7 +658,7 @@ class ThemeManager
         $dirName = $parts[0];
         $fileName = implode('/', array_splice($parts, 1));
 
-        $fileNameParts = $theme->newTemplate($dirName)->getFileNameParts($fileName);
+        $fileNameParts = $theme->onTemplate($dirName)->getFileNameParts($fileName);
 
         return [$dirName, implode('.', $fileNameParts)];
     }
@@ -637,7 +670,7 @@ class ThemeManager
      * @param $themeCode
      *
      * @return array|null
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
     protected function validateMetaFile($path, $themeCode)
@@ -647,12 +680,12 @@ class ThemeManager
         }
 
         foreach ([
-                     'code',
-                     'name',
-                     'description',
-                     'version',
-                     'author',
-                 ] as $item) {
+            'code',
+            'name',
+            'description',
+            'version',
+            'author',
+        ] as $item) {
             if (!array_key_exists($item, $config)) {
                 throw new SystemException(sprintf(
                     Lang::get('system::lang.missing.config_key'),

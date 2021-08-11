@@ -1,6 +1,8 @@
-<?php namespace System\Classes;
+<?php
 
-use SystemException;
+namespace System\Classes;
+
+use Igniter\Flame\Exception\SystemException;
 
 /**
  * Components class for TastyIgniter.
@@ -225,7 +227,7 @@ class ComponentManager
      * @param array $params The properties set by the Page or Layout.
      *
      * @return \System\Classes\BaseComponent The component object.
-     * @throws \SystemException
+     * @throws \Igniter\Flame\Exception\SystemException
      */
     public function makeComponent($name, $page = null, $params = [])
     {
@@ -288,7 +290,7 @@ class ComponentManager
      * Returns a component property configuration as a JSON string or array.
      *
      * @param mixed $component The component object
-     * @param boolean $addAliasProperty Determines if the Alias property should be added to the result.
+     * @param bool $addAliasProperty Determines if the Alias property should be added to the result.
      *
      * @return array
      */
@@ -302,7 +304,7 @@ class ComponentManager
                 'label' => '',
                 'type' => 'text',
                 'comment' => '',
-                'validationPattern' => '^[a-zA-Z]+[0-9a-z\_]*$',
+                'validationRule' => 'required|regex:^[a-zA-Z]+$',
                 'validationMessage' => '',
                 'required' => TRUE,
                 'showExternalParam' => FALSE,
@@ -374,6 +376,25 @@ class ComponentManager
         }
 
         return $result;
+    }
+
+    public function getComponentPropertyRules($component)
+    {
+        $properties = $component->defineProperties();
+
+        $rules = [];
+        foreach ($properties as $name => $params) {
+            if (strlen($rule = array_get($params, 'validationRule', '')))
+                $rules[] = [$name, array_get($params, 'label', $name), $rule];
+        }
+
+        $messages = [];
+        foreach ($properties as $name => $params) {
+            if (strlen($message = array_get($params, 'validationMessage', '')))
+                $messages[$name] = $message;
+        }
+
+        return [$rules, $messages];
     }
 
     protected function checkComponentPropertyType($type)

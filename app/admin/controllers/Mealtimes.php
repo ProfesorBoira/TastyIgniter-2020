@@ -1,12 +1,15 @@
-<?php namespace Admin\Controllers;
+<?php
 
-use AdminMenu;
+namespace Admin\Controllers;
+
+use Admin\Facades\AdminMenu;
 
 class Mealtimes extends \Admin\Classes\AdminController
 {
     public $implement = [
         'Admin\Actions\ListController',
         'Admin\Actions\FormController',
+        'Admin\Actions\LocationAwareController',
     ];
 
     public $listConfig = [
@@ -27,11 +30,13 @@ class Mealtimes extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'mealtimes/edit/{mealtime_id}',
             'redirectClose' => 'mealtimes',
+            'redirectNew' => 'mealtimes/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'mealtimes/edit/{mealtime_id}',
             'redirectClose' => 'mealtimes',
+            'redirectNew' => 'mealtimes/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -49,6 +54,6 @@ class Mealtimes extends \Admin\Classes\AdminController
     {
         parent::__construct();
 
-        AdminMenu::setContext('mealtimes', 'kitchen');
+        AdminMenu::setContext('mealtimes', 'restaurant');
     }
 }

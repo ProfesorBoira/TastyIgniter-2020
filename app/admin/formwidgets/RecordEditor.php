@@ -1,20 +1,22 @@
-<?php namespace Admin\FormWidgets;
+<?php
+
+namespace Admin\FormWidgets;
 
 use Admin\Classes\BaseFormWidget;
 use Admin\Traits\FormModelWidget;
+use Admin\Traits\ValidatesForm;
 use Admin\Widgets\Form;
-use ApplicationException;
-use DB;
-use Html;
+use Igniter\Flame\Exception\ApplicationException;
+use Igniter\Flame\Html\HtmlFacade as Html;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Record Editor
- *
- * @package Admin
  */
 class RecordEditor extends BaseFormWidget
 {
     use FormModelWidget;
+    use ValidatesForm;
 
     public $form;
 
@@ -27,6 +29,12 @@ class RecordEditor extends BaseFormWidget
     public $popupSize;
 
     public $formName = 'Record';
+
+    public $hideEditButton = FALSE;
+
+    public $hideDeleteButton = FALSE;
+
+    public $hideCreateButton = FALSE;
 
     public $addLabel = 'New';
 
@@ -48,6 +56,9 @@ class RecordEditor extends BaseFormWidget
             'modelClass',
             'addonLeft',
             'addonRight',
+            'hideCreateButton',
+            'hideEditButton',
+            'hideDeleteButton',
             'addLabel',
             'editLabel',
             'deleteLabel',
@@ -64,7 +75,8 @@ class RecordEditor extends BaseFormWidget
 
     public function loadAssets()
     {
-        $this->addJs('../../repeater/assets/js/jquery-sortable.js', 'jquery-sortable-js');
+        $this->addJs('../../repeater/assets/vendor/sortablejs/Sortable.min.js', 'sortable-js');
+        $this->addJs('../../repeater/assets/vendor/sortablejs/jquery-sortable.js', 'jquery-sortable-js');
         $this->addJs('../../repeater/assets/js/repeater.js', 'repeater-js');
 
         $this->addJs('js/recordeditor.modal.js', 'recordeditor-modal-js');
@@ -81,6 +93,9 @@ class RecordEditor extends BaseFormWidget
         $this->vars['addLabel'] = $this->addLabel;
         $this->vars['editLabel'] = $this->editLabel;
         $this->vars['deleteLabel'] = $this->deleteLabel;
+        $this->vars['showEditButton'] = !$this->hideEditButton;
+        $this->vars['showDeleteButton'] = !$this->hideDeleteButton;
+        $this->vars['showCreateButton'] = !$this->hideCreateButton;
     }
 
     public function onLoadRecord()
@@ -91,8 +106,8 @@ class RecordEditor extends BaseFormWidget
 
         return $this->makePartial('recordeditor/form', [
             'formRecordId' => $recordId,
-            'formTitle'    => ($model->exists ? $this->editLabel : $this->addLabel).' '.lang($this->formName),
-            'formWidget'   => $this->makeRecordFormWidget($model),
+            'formTitle' => ($model->exists ? $this->editLabel : $this->addLabel).' '.lang($this->formName),
+            'formWidget' => $this->makeRecordFormWidget($model),
         ]);
     }
 
@@ -104,7 +119,9 @@ class RecordEditor extends BaseFormWidget
 
         $form = $this->makeRecordFormWidget($model);
 
-        $modelsToSave = $this->prepareModelsToSave($model, $form->getSaveData());
+        $this->validateFormWidget($form, $saveData = $form->getSaveData());
+
+        $modelsToSave = $this->prepareModelsToSave($model, $saveData);
 
         DB::transaction(function () use ($modelsToSave) {
             foreach ($modelsToSave as $modelToSave) {
@@ -116,7 +133,7 @@ class RecordEditor extends BaseFormWidget
             lang($this->formName).' '.($form->context == 'create' ? 'created' : 'updated')))->now();
 
         return [
-            '#notification'               => $this->makePartial('flash'),
+            '#notification' => $this->makePartial('flash'),
             '#'.$this->formField->getId() => $form->renderField($this->formField, [
                 'useContainer' => FALSE,
             ]),
@@ -134,7 +151,7 @@ class RecordEditor extends BaseFormWidget
         flash()->success(sprintf(lang('admin::lang.alert_success'), lang($this->formName).' deleted'))->now();
 
         return [
-            '#notification'               => $this->makePartial('flash'),
+            '#notification' => $this->makePartial('flash'),
             '#'.$this->formField->getId() => $form->renderField($this->formField, [
                 'useContainer' => FALSE,
             ]),
@@ -170,8 +187,8 @@ class RecordEditor extends BaseFormWidget
             $config = [$config];
 
         $config = (object)array_merge([
-            'tag'        => 'span',
-            'label'      => 'Label',
+            'tag' => 'span',
+            'label' => 'Label',
             'attributes' => [],
         ], $config);
 
@@ -184,7 +201,7 @@ class RecordEditor extends BaseFormWidget
         $methodName = 'get'.studly_case($this->fieldName).'RecordEditorOptions';
 
         if (!$model->methodExists($methodName) AND !$model->methodExists('getRecordEditorOptions')) {
-            throw new ApplicationException(sprintf('Missing method [%s] in %s', 'getRecordEditorOptions', get_class($model)));
+            throw new ApplicationException(sprintf(lang('admin::lang.alert_missing_method'), 'getRecordEditorOptions', get_class($model)));
         }
 
         if ($model->methodExists($methodName)) {

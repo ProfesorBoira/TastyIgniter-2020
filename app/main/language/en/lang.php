@@ -44,6 +44,7 @@ return [
     'components' => [
         'button_new' => 'Add Component',
         'button_edit' => 'Edit Component',
+        'button_delete' => 'Delete Component',
     ],
 
     'media_manager' => [
@@ -123,6 +124,8 @@ return [
         'alert_delete_disabled' => 'Deleting file/folder is disabled, check image/media manager settings.',
         'alert_select_delete_file' => 'Please select the file/folder you wish to delete.',
         'alert_success_delete' => 'File (s) deleted successfully',
+        'alert_select_item_to_attach' => 'Select an item to attach.',
+        'alert_only_attach_to_saved' => 'You can only attach media to a saved form.',
     ],
 
     'home' => [
@@ -206,9 +209,6 @@ return [
 
             'button_login' => 'Login',
             'button_register' => 'Register',
-
-            'activity_logged_in' => ' <b>logged</b> in.',
-            'activity_registered_account' => ' <b>created</b> an account.',
         ],
 
         'register' => [

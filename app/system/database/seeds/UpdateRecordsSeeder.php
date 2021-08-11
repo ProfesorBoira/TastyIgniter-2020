@@ -1,9 +1,11 @@
-<?php namespace System\Database\Seeds;
+<?php
+
+namespace System\Database\Seeds;
 
 use Admin\Models\Categories_model;
 use Admin\Models\Locations_model;
-use DB;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Fill newly created permalink_slug column with values from permalinks table
@@ -18,8 +20,6 @@ class UpdateRecordsSeeder extends Seeder
     public function run()
     {
         $this->updateMorphsOnStatusHistory();
-
-        $this->updateMorphsOnReviews();
 
         $this->fixPermalinkSlugColumns();
 
@@ -39,34 +39,12 @@ class UpdateRecordsSeeder extends Seeder
         ];
 
         DB::table('status_history')->get()->each(function ($model) use ($morphs) {
-            if (!isset($morphs[$model->status_for]))
+            $status = DB::table('statuses')->where('status_id', $model->status_id)->first();
+            if (!$status OR !isset($morphs[$status->status_for]))
                 return FALSE;
 
             DB::table('status_history')->where('status_history_id', $model->status_history_id)->update([
-                'object_type' => $morphs[$model->status_for],
-            ]);
-        });
-    }
-
-    protected function updateMorphsOnReviews()
-    {
-        if (DB::table('reviews')
-              ->where('sale_type', 'Admin\Models\Orders_model')
-              ->orWhere('sale_type', 'Admin\Models\Reservations_model')
-              ->count()
-        ) return;
-
-        $morphs = [
-            'order' => 'Admin\Models\Orders_model',
-            'reservation' => 'Admin\Models\Reservations_model',
-        ];
-
-        DB::table('reviews')->get()->each(function ($model) use ($morphs) {
-            if (!isset($morphs[$model->sale_type]))
-                return FALSE;
-
-            DB::table('reviews')->where('review_id', $model->review_id)->update([
-                'sale_type' => $morphs[$model->sale_type],
+                'object_type' => $morphs[$status->status_for],
             ]);
         });
     }
@@ -94,7 +72,6 @@ class UpdateRecordsSeeder extends Seeder
                 return TRUE;
 
             foreach ($options['delivery_areas'] as $option) {
-
                 $boundaries = array_except($option, ['type', 'name', 'charge', 'conditions']);
                 if (isset($boundaries['shape']))
                     $boundaries['polygon'] = $boundaries['shape'];

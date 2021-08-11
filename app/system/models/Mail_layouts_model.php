@@ -1,15 +1,16 @@
-<?php namespace System\Models;
+<?php
 
-use ApplicationException;
-use File;
+namespace System\Models;
+
+use Igniter\Flame\Database\Model;
+use Igniter\Flame\Exception\ApplicationException;
 use Igniter\Flame\Mail\MailParser;
-use Model;
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\View;
 use System\Classes\MailManager;
-use View;
 
 /**
  * MailLayouts Model Class
- * @package System
  */
 class Mail_layouts_model extends Model
 {
@@ -36,7 +37,7 @@ class Mail_layouts_model extends Model
      */
     public $timestamps = TRUE;
 
-    public $casts = [
+    protected $casts = [
         'language_id' => 'integer',
         'status' => 'boolean',
         'is_locked' => 'boolean',
@@ -44,7 +45,7 @@ class Mail_layouts_model extends Model
 
     public $relation = [
         'hasMany' => [
-            'templates' => ['System\Models\Mail_templates_model', 'foreignKey' => 'layout_id', 'delete' => TRUE],
+            'templates' => ['System\Models\Mail_templates_model', 'foreignKey' => 'layout_id'],
         ],
         'belongsTo' => [
             'language' => 'System\Models\Languages_model',
@@ -59,7 +60,7 @@ class Mail_layouts_model extends Model
     protected function beforeDelete()
     {
         if ($this->is_locked) {
-            throw new ApplicationException('Cannot delete this template because it is locked');
+            throw new ApplicationException('You cannot delete a locked template');
         }
     }
 

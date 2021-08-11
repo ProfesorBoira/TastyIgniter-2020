@@ -1,13 +1,16 @@
-<?php namespace Admin\Controllers;
+<?php
 
-use AdminAuth;
-use AdminMenu;
+namespace Admin\Controllers;
+
+use Admin\Facades\AdminAuth;
+use Admin\Facades\AdminMenu;
 
 class Staffs extends \Admin\Classes\AdminController
 {
     public $implement = [
         'Admin\Actions\ListController',
         'Admin\Actions\FormController',
+        'Admin\Actions\LocationAwareController',
     ];
 
     public $listConfig = [
@@ -28,11 +31,13 @@ class Staffs extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'staffs/edit/{staff_id}',
             'redirectClose' => 'staffs',
+            'redirectNew' => 'staffs/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'staffs/edit/{staff_id}',
             'redirectClose' => 'staffs',
+            'redirectNew' => 'staffs/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -88,6 +93,15 @@ class Staffs extends \Admin\Classes\AdminController
     {
         if (!AdminAuth::isSuperUser()) {
             $query->whereNotSuperUser();
+        }
+    }
+
+    public function formExtendFields($form)
+    {
+        if (!AdminAuth::isSuperUser()) {
+            $form->removeField('staff_role_id');
+            $form->removeField('staff_status');
+            $form->removeField('user[super_user]');
         }
     }
 }

@@ -2,12 +2,10 @@
 
 namespace Main\Classes;
 
-use AdminAuth;
-use App;
-use ApplicationException;
-use Config;
+use Admin\Facades\AdminAuth;
 use Exception;
 use Igniter\Flame\Exception\AjaxException;
+use Igniter\Flame\Exception\ApplicationException;
 use Igniter\Flame\Exception\SystemException;
 use Igniter\Flame\Exception\ValidationException;
 use Igniter\Flame\Flash\Facades\Flash;
@@ -16,8 +14,14 @@ use Igniter\Flame\Pagic\Environment;
 use Igniter\Flame\Pagic\Parsers\FileParser;
 use Igniter\Flame\Traits\EventEmitter;
 use Illuminate\Http\RedirectResponse;
-use Lang;
-use Log;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Main\Components\BlankComponent;
 use Main\Template\ComponentPartial;
 use Main\Template\Content;
@@ -25,26 +29,23 @@ use Main\Template\Extension\BladeExtension as MainBladeExtension;
 use Main\Template\Layout as LayoutTemplate;
 use Main\Template\Loader;
 use Main\Template\Partial;
-use Redirect;
-use Request;
-use Response;
 use System\Classes\BaseComponent;
 use System\Classes\BaseController;
 use System\Classes\ComponentManager;
 use System\Helpers\ViewHelper;
+use System\Models\Request_logs_model;
 use System\Template\Extension\BladeExtension as SystemBladeExtension;
 use System\Traits\AssetMaker;
-use URL;
-use View;
+use System\Traits\VerifiesCsrfToken;
 
 /**
  * Main Controller Class
- * @package Main
  */
 class MainController extends BaseController
 {
     use AssetMaker;
     use EventEmitter;
+    use VerifiesCsrfToken;
 
     /**
      * @var \Main\Classes\Theme The main theme processed by the controller.
@@ -135,7 +136,7 @@ class MainController extends BaseController
      *
      * @param null $theme
      *
-     * @throws \ApplicationException
+     * @throws \Igniter\Flame\Exception\ApplicationException
      */
     public function __construct($theme = null)
     {
@@ -143,11 +144,15 @@ class MainController extends BaseController
         if (!$this->theme)
             throw new ApplicationException(Lang::get('main::lang.not_found.active_theme'));
 
+        $this->theme->loadThemeFile();
+
         $this->assetPath[] = $this->theme->getPath().'/assets';
         if ($this->theme->hasParent())
             $this->assetPath[] = $this->theme->getParentPath().'/assets';
 
         parent::__construct();
+
+        $this->theme->loadThemeFile();
 
         $this->router = new Router($this->theme);
 
@@ -168,13 +173,6 @@ class MainController extends BaseController
 
         $page = $this->router->findByUrl($url);
 
-        // Hidden page
-//        if ($page AND !$page->published) {
-//            if (!AdminAuth::getUser()) {
-//                $page = null;
-//            }
-//        }
-
         // Show maintenance message if maintenance is enabled
         if (setting('maintenance_mode') == 1 AND !AdminAuth::isLogged())
             return Response::make(
@@ -190,7 +188,7 @@ class MainController extends BaseController
 
             // Log the 404 request
             if (!App::runningUnitTests())
-                Log::error(sprintf(lang('main::lang.not_found.page_message').': %s', $url));
+                Request_logs_model::createLog(404);
 
             if (!$page = $this->router->findByUrl('/404'))
                 return Response::make(View::make('main::404'), $this->statusCode);
@@ -278,9 +276,8 @@ class MainController extends BaseController
         // Render the layout
         $this->loader->setSource($this->layout);
         $template = $this->template->load($this->layout->getFilePath());
-        $result = $template->render($this->vars);
 
-        return $result;
+        return $template->render($this->vars);
     }
 
     /**
@@ -358,6 +355,9 @@ class MainController extends BaseController
         if (!$handler = $this->getHandler())
             return FALSE;
 
+        if (!$this->verifyCsrfToken())
+            return FALSE;
+
         try {
             $this->validateHandler($handler);
 
@@ -385,10 +385,10 @@ class MainController extends BaseController
             if (is_array($result)) {
                 $response = array_merge($response, $result);
             }
-            else if (is_string($result)) {
+            elseif (is_string($result)) {
                 $response['result'] = $result;
             }
-            else if (is_object($result)) {
+            elseif (is_object($result)) {
                 return $result;
             }
 
@@ -467,7 +467,7 @@ class MainController extends BaseController
     /**
      * Returns an existing instance of the controller.
      * If the controller doesn't exists, returns null.
-     * @return mixed Returns the controller object or null.
+     * @return self Returns the controller object or null.
      */
     public static function getController()
     {
@@ -533,7 +533,7 @@ class MainController extends BaseController
 
         $useCache = TRUE;
         if ($useCache) {
-            $options['cache'] = new FileSystem(storage_path().'/system/templates');
+            $options['cache'] = new FileSystem(config('view.compiled'));
         }
 
         $this->template = new Environment($this->loader, $options);
@@ -608,7 +608,6 @@ class MainController extends BaseController
         }
         // Process Component partial
         elseif (strpos($name, '::') !== FALSE) {
-
             if (($partial = $this->loadComponentPartial($name, $throwException)) === FALSE)
                 return FALSE;
 
@@ -616,7 +615,7 @@ class MainController extends BaseController
             $this->vars['__SELF__'] = $this->componentContext;
         }
         // Process theme partial
-        else if (($partial = $this->loadPartial($name, $throwException)) === FALSE) {
+        elseif (($partial = $this->loadPartial($name, $throwException)) === FALSE) {
             return FALSE;
         }
 
@@ -642,7 +641,7 @@ class MainController extends BaseController
      * @param array $params Parameter variables to pass to the view.
      *
      * @return string
-     * @throws \ApplicationException
+     * @throws \Igniter\Flame\Exception\ApplicationException
      */
     public function renderContent($name, array $params = [])
     {
@@ -687,7 +686,7 @@ class MainController extends BaseController
      * @param bool $throwException Throw an exception if the partial is not found.
      *
      * @return mixed Partial contents or false if not throwing an exception.
-     * @throws \ApplicationException
+     * @throws \Igniter\Flame\Exception\ApplicationException
      */
     public function renderComponent($name, array $params = [], $throwException = TRUE)
     {

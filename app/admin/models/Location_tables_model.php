@@ -1,11 +1,12 @@
-<?php namespace Admin\Models;
+<?php
 
-use Model;
+namespace Admin\Models;
+
+use Igniter\Flame\Database\Model;
 
 /**
  * Location tables Model Class
- *
- * @package Admin
+ * @deprecated remove before v4. Added for backward compatibility, see Locationable
  */
 class Location_tables_model extends Model
 {
@@ -18,7 +19,7 @@ class Location_tables_model extends Model
 
     public $incrementing = FALSE;
 
-    public $casts = [
+    protected $casts = [
         'location_id' => 'integer',
         'table_id' => 'integer',
     ];

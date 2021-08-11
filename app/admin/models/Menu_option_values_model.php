@@ -1,18 +1,16 @@
-<?php namespace Admin\Models;
+<?php
 
+namespace Admin\Models;
+
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Database\Traits\Sortable;
-use Igniter\Flame\Database\Traits\Validation;
-use Model;
 
 /**
  * Menu_option_values Model Class
- *
- * @package Admin
  */
 class Menu_option_values_model extends Model
 {
     use Sortable;
-    use Validation;
 
     /**
      * @var string The database table name
@@ -24,9 +22,9 @@ class Menu_option_values_model extends Model
      */
     protected $primaryKey = 'option_value_id';
 
-    protected $fillable = ['option_id', 'value', 'price'];
+    protected $fillable = ['option_id', 'value', 'price', 'allergens', 'priority'];
 
-    public $casts = [
+    protected $casts = [
         'option_value_id' => 'integer',
         'option_id' => 'integer',
         'price' => 'float',
@@ -37,21 +35,50 @@ class Menu_option_values_model extends Model
         'belongsTo' => [
             'option' => ['Admin\Models\Menu_options_model'],
         ],
+        'morphToMany' => [
+            'allergens' => ['Admin\Models\Allergens_model', 'name' => 'allergenable'],
+        ],
     ];
 
     public $sortable = [
         'sortOrderColumn' => 'priority',
-        'sortWhenCreating' => FALSE,
-    ];
-
-    public $rules = [
-        ['option_id', 'lang:admin::lang.menu_options.label_option_id', 'required|integer'],
-        ['value', 'lang:admin::lang.menu_options.label_option_value', 'required|min:2|max:128'],
-        ['price', 'lang:admin::lang.menu_options.label_option_price', 'required|numeric'],
+        'sortWhenCreating' => TRUE,
     ];
 
     public static function getDropDownOptions()
     {
         return static::dropdown('value');
+    }
+
+    public function getAllergensOptions()
+    {
+        if (self::$allergensOptionsCache)
+            return self::$allergensOptionsCache;
+
+        return self::$allergensOptionsCache = Allergens_model::dropdown('name')->all();
+    }
+
+    //
+    // Events
+    //
+
+    protected function beforeDelete()
+    {
+        $this->allergens()->detach();
+    }
+
+    /**
+     * Create new or update existing menu allergens
+     *
+     * @param array $allergenIds if empty all existing records will be deleted
+     *
+     * @return bool
+     */
+    public function addMenuAllergens(array $allergenIds = [])
+    {
+        if (!$this->exists)
+            return FALSE;
+
+        $this->allergens()->sync($allergenIds);
     }
 }

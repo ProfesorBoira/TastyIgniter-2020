@@ -11,7 +11,7 @@ $config['list']['filter'] = [
             'scope' => 'whereHasLocation',
             'modelClass' => 'Admin\Models\Locations_model',
             'nameFrom' => 'location_name',
-            'locationAware' => 'hide',
+            'locationAware' => TRUE,
         ],
         'category' => [
             'label' => 'lang:admin::lang.menus.text_filter_category',
@@ -44,6 +44,12 @@ $config['list']['toolbar'] = [
             'data-request-data' => "_method:'DELETE'",
             'data-request-confirm' => 'lang:admin::lang.alert_warning_confirm',
         ],
+        'allergens' => [
+            'label' => 'lang:admin::lang.allergens.text_allergens',
+            'class' => 'btn btn-default',
+            'href' => 'allergens',
+            'permission' => 'Admin.Allergens',
+        ],
     ],
 ];
 
@@ -72,7 +78,7 @@ $config['list']['columns'] = [
         'relation' => 'locations',
         'select' => 'location_name',
         'invisible' => TRUE,
-        'locationAware' => 'hide',
+        'locationAware' => TRUE,
     ],
     'menu_price' => [
         'label' => 'lang:admin::lang.menus.column_price',
@@ -105,17 +111,17 @@ $config['list']['columns'] = [
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default',
+            'href' => 'menus',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
+            'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -142,26 +148,31 @@ $config['form']['tabs'] = [
             'label' => 'lang:admin::lang.menus.label_price',
             'type' => 'currency',
             'span' => 'right',
-        ],
-        'categories' => [
-            'label' => 'lang:admin::lang.menus.label_category',
-            'type' => 'relation',
-            'span' => 'left',
+            'cssClass' => 'flex-width',
         ],
         'menu_priority' => [
             'label' => 'lang:admin::lang.menus.label_menu_priority',
             'type' => 'number',
             'span' => 'right',
             'default' => 0,
+            'cssClass' => 'flex-width',
         ],
-        'mealtime_id' => [
+        'categories' => [
+            'label' => 'lang:admin::lang.menus.label_category',
+            'type' => 'relation',
+            'span' => 'left',
+        ],
+        'allergens' => [
+            'label' => 'lang:admin::lang.menus.label_allergens',
+            'type' => 'relation',
+            'span' => 'right',
+        ],
+        'mealtimes' => [
             'label' => 'lang:admin::lang.menus.label_mealtime',
             'type' => 'relation',
             'span' => 'left',
-            'relationFrom' => 'mealtime',
             'nameFrom' => 'mealtime_name',
             'comment' => 'lang:admin::lang.menus.help_mealtime',
-            'placeholder' => 'lang:admin::lang.menus.text_mealtime_all',
         ],
         'locations' => [
             'label' => 'lang:admin::lang.label_location',
@@ -169,7 +180,7 @@ $config['form']['tabs'] = [
             'span' => 'right',
             'valueFrom' => 'locations',
             'nameFrom' => 'location_name',
-            'locationAware' => 'hide',
+            'scope' => 'isEnabled',
         ],
         'minimum_qty' => [
             'label' => 'lang:admin::lang.menus.label_minimum_qty',
@@ -187,14 +198,10 @@ $config['form']['tabs'] = [
         ],
         'order_restriction' => [
             'label' => 'lang:admin::lang.menus.label_order_restriction',
-            'type' => 'radiotoggle',
+            'type' => 'checkboxtoggle',
             'span' => 'left',
             'comment' => 'lang:admin::lang.menus.help_order_restriction',
-            'options' => [
-                'lang:admin::lang.text_none',
-                'lang:admin::lang.coupons.text_delivery_only',
-                'lang:admin::lang.coupons.text_collection_only',
-            ],
+            'options' => ['Admin\Models\Locations_model', 'getOrderTypeOptions'],
         ],
         'subtract_stock' => [
             'label' => 'lang:admin::lang.menus.label_subtract_stock',
@@ -268,8 +275,8 @@ $config['form']['tabs'] = [
             'cssClass' => 'flex-width',
             'default' => 'F',
             'options' => [
-                'F' => 'lang:admin::lang.coupons.text_fixed_amount',
-                'P' => 'lang:admin::lang.coupons.text_percentage',
+                'F' => 'lang:admin::lang.menus.text_fixed_amount',
+                'P' => 'lang:admin::lang.menus.text_percentage',
             ],
         ],
         'special[special_price]' => [
@@ -280,14 +287,14 @@ $config['form']['tabs'] = [
             'cssClass' => 'flex-width',
         ],
         'special[validity]' => [
-            'label' => 'lang:admin::lang.coupons.label_validity',
+            'label' => 'lang:admin::lang.menus.label_validity',
             'tab' => 'lang:admin::lang.menus.text_tab_special',
             'type' => 'radiotoggle',
             'default' => 'forever',
             'options' => [
-                'forever' => 'lang:admin::lang.coupons.text_forever',
-                'period' => 'lang:admin::lang.coupons.text_period',
-                'recurring' => 'lang:admin::lang.coupons.text_recurring',
+                'forever' => 'lang:admin::lang.menus.text_forever',
+                'period' => 'lang:admin::lang.menus.text_period',
+                'recurring' => 'lang:admin::lang.menus.text_recurring',
             ],
         ],
         'special[start_date]' => [
@@ -302,6 +309,9 @@ $config['form']['tabs'] = [
                 'field' => 'special[validity]',
                 'condition' => 'value[period]',
             ],
+            'containerAttributes' => [
+                'style' => 'z-index:10',
+            ],
         ],
         'special[end_date]' => [
             'label' => 'lang:admin::lang.menus.label_end_date',
@@ -315,9 +325,12 @@ $config['form']['tabs'] = [
                 'field' => 'special[validity]',
                 'condition' => 'value[period]',
             ],
+            'containerAttributes' => [
+                'style' => 'z-index:10',
+            ],
         ],
         'special[recurring_every]' => [
-            'label' => 'lang:admin::lang.coupons.label_recurring_every',
+            'label' => 'lang:admin::lang.menus.label_recurring_every',
             'tab' => 'lang:admin::lang.menus.text_tab_special',
             'type' => 'checkboxtoggle',
             'options' => [\Admin\Models\Menus_specials_model::class, 'getRecurringEveryOptions'],
@@ -328,7 +341,7 @@ $config['form']['tabs'] = [
             ],
         ],
         'special[recurring_from]' => [
-            'label' => 'lang:admin::lang.coupons.label_recurring_from_time',
+            'label' => 'lang:admin::lang.menus.label_recurring_from_time',
             'tab' => 'lang:admin::lang.menus.text_tab_special',
             'type' => 'datepicker',
             'mode' => 'time',
@@ -341,7 +354,7 @@ $config['form']['tabs'] = [
             ],
         ],
         'special[recurring_to]' => [
-            'label' => 'lang:admin::lang.coupons.label_recurring_to_time',
+            'label' => 'lang:admin::lang.menus.label_recurring_to_time',
             'tab' => 'lang:admin::lang.menus.text_tab_special',
             'type' => 'datepicker',
             'mode' => 'time',

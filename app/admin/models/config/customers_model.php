@@ -2,15 +2,13 @@
 $config['list']['filter'] = [
     'search' => [
         'prompt' => 'lang:admin::lang.customers.text_filter_search',
-        'mode' => 'all' // or any, exact
+        'mode' => 'all', // or any, exact
     ],
     'scopes' => [
         'date' => [
             'label' => 'lang:admin::lang.text_filter_date',
             'type' => 'date',
-            'conditions' => 'YEAR(date_added) = :year AND MONTH(date_added) = :month',
-            'modelClass' => 'Admin\Models\Customers_model',
-            'options' => 'getCustomerDates',
+            'conditions' => 'YEAR(date_added) = :year AND MONTH(date_added) = :month AND DAY(date_added) = :day',
         ],
         'status' => [
             'label' => 'lang:admin::lang.text_filter_status',
@@ -94,17 +92,17 @@ $config['list']['columns'] = [
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default',
+            'href' => 'customers',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
+            'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -190,6 +188,8 @@ $config['form']['tabs'] = [
         'orders' => [
             'tab' => 'lang:admin::lang.customers.text_tab_orders',
             'type' => 'datatable',
+            'useAjax' => TRUE,
+            'defaultSort' => ['order_id', 'desc'],
             'columns' => [
                 'order_id' => [
                     'title' => 'lang:admin::lang.column_id',
@@ -217,6 +217,8 @@ $config['form']['tabs'] = [
         'reservations' => [
             'tab' => 'lang:admin::lang.customers.text_tab_reservations',
             'type' => 'datatable',
+            'useAjax' => TRUE,
+            'defaultSort' => ['reservation_id', 'desc'],
             'columns' => [
                 'reservation_id' => [
                     'title' => 'lang:admin::lang.column_id',

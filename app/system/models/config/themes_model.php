@@ -1,14 +1,9 @@
 <?php
 $config['list']['toolbar'] = [
     'buttons' => [
-        'upload' => [
-            'label' => 'lang:system::lang.themes.button_new',
-            'class' => 'btn btn-primary',
-            'href' => 'themes/upload',
-        ],
         'browse' => [
             'label' => 'lang:system::lang.themes.button_browse',
-            'class' => 'btn btn-default',
+            'class' => 'btn btn-primary',
             'href' => 'updates/browse/themes',
         ],
         'check' => [
@@ -24,15 +19,15 @@ $config['list']['columns'] = [
         'type' => 'button',
         'iconCssClass' => 'fa fa-paint-brush',
         'attributes' => [
-            'class' => 'btn btn-outline-default',
+            'class' => 'btn btn-outline-default mr-2',
             'href' => 'themes/edit/{code}',
         ],
     ],
     'source' => [
         'type' => 'button',
-        'iconCssClass' => 'fa fa-pencil',
+        'iconCssClass' => 'fa fa-file',
         'attributes' => [
-            'class' => 'btn btn-outline-default',
+            'class' => 'btn btn-outline-default mr-2',
             'href' => 'themes/source/{code}',
         ],
     ],
@@ -40,7 +35,7 @@ $config['list']['columns'] = [
         'type' => 'button',
         'iconCssClass' => 'fa fa-star-o',
         'attributes' => [
-            'class' => 'btn btn-outline-warning',
+            'class' => 'btn btn-outline-warning mr-2 bg-transparent',
             'title' => 'lang:system::lang.themes.text_set_default',
             'data-request' => 'onSetDefault',
             'data-request-form' => '#list-form',
@@ -68,17 +63,15 @@ $config['list']['columns'] = [
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default ml-0',
+            'href' => 'themes',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
     ],
@@ -100,7 +93,6 @@ $config['form']['fields'] = [
     'template' => [
         'label' => 'lang:system::lang.themes.label_template',
         'type' => 'templateeditor',
-        'form' => 'menu_options_model',
         'context' => ['source'],
     ],
 ];

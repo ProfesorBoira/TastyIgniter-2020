@@ -2,9 +2,8 @@
 
 namespace Admin\Traits;
 
-use Geocoder;
+use Igniter\Flame\Geolite\Facades\Geocoder;
 use Igniter\Flame\Location\Contracts\AreaInterface;
-use Model;
 
 trait HasDeliveryAreas
 {
@@ -15,8 +14,22 @@ trait HasDeliveryAreas
 
     public static function bootHasDeliveryAreas()
     {
-        static::saving(function (Model $model) {
+        static::fetched(function (self $model) {
+            $value = @unserialize($model->attributes['options']) ?: [];
+
+            $model->parseAreasFromOptions($value);
+
+            $model->attributes['options'] = @serialize($value);
+        });
+
+        static::saving(function (self $model) {
             $model->geocodeAddressOnSave();
+
+            $value = @unserialize($model->attributes['options']) ?: [];
+
+            $model->parseAreasFromOptions($value);
+
+            $model->attributes['options'] = @serialize($value);
         });
     }
 
@@ -25,8 +38,14 @@ trait HasDeliveryAreas
         if (!array_get($this->options, 'auto_lat_lng', TRUE))
             return;
 
-        if (!empty($this->location_lat) AND !empty($this->location_lng))
-            return;
+        if (!$this->isDirty([
+            'location_address_1',
+            'location_address_2',
+            'location_city',
+            'location_state',
+            'location_postcode',
+            'location_country_id',
+        ])) return;
 
         $address = format_address($this->getAddress(), FALSE);
 
@@ -85,9 +104,11 @@ trait HasDeliveryAreas
         if (!$coordinates)
             return null;
 
-        return $this->delivery_areas->first(function (AreaInterface $model) use ($coordinates) {
-            return $model->checkBoundary($coordinates);
-        });
+        return $this->delivery_areas
+            ->sortBy('priority')
+            ->first(function (AreaInterface $model) use ($coordinates) {
+                return $model->checkBoundary($coordinates);
+            });
     }
 
     public function getDistanceUnit()
@@ -115,6 +136,7 @@ trait HasDeliveryAreas
         if (!is_array($deliveryAreas))
             return FALSE;
 
+        $idsToKeep = [];
         foreach ($deliveryAreas as $area) {
             $locationArea = $this->delivery_areas()->firstOrNew([
                 'area_id' => $area['area_id'] ?? null,

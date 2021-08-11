@@ -2,16 +2,14 @@
 
 namespace Admin\Classes;
 
-use File;
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Exception\SystemException;
-use Model;
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\URL;
 use System\Actions\ModelAction;
-use URL;
 
 /**
  * Base Payment Gateway Class
- *
- * @package Admin
  */
 class BasePaymentGateway extends ModelAction
 {
@@ -26,6 +24,8 @@ class BasePaymentGateway extends ModelAction
 
     protected $configFields = [];
 
+    protected $configRules = [];
+
     /**
      * Class constructor
      *
@@ -38,7 +38,10 @@ class BasePaymentGateway extends ModelAction
 
         $calledClass = strtolower(get_called_class());
         $this->configPath = extension_path(File::normalizePath($calledClass));
-        $this->configFields = $this->loadConfig($this->defineFieldsConfig(), ['fields'], 'fields');
+
+        $formConfig = $this->loadConfig($this->defineFieldsConfig(), ['fields']);
+        $this->configFields = array_get($formConfig, 'fields');
+        $this->configRules = array_get($formConfig, 'rules');
 
         if (!$model)
             return;
@@ -81,6 +84,14 @@ class BasePaymentGateway extends ModelAction
     public function getConfigFields()
     {
         return $this->configFields;
+    }
+
+    /**
+     * Returns the form configuration used by this model.
+     */
+    public function getConfigRules()
+    {
+        return $this->configRules;
     }
 
     /**
@@ -198,7 +209,7 @@ class BasePaymentGateway extends ModelAction
      */
     public function updatePaymentProfile($customer, $data)
     {
-        throw new SystemException('The updatePaymentProfile() method is not supported by the payment gateway.');
+        throw new SystemException(lang('admin::lang.payments.alert_update_payment_profile'));
     }
 
     /**
@@ -208,7 +219,7 @@ class BasePaymentGateway extends ModelAction
      */
     public function deletePaymentProfile($customer, $profile)
     {
-        throw new SystemException('The deletePaymentProfile() method is not supported by the payment gateway.');
+        throw new SystemException(lang('admin::lang.payments.alert_delete_payment_profile'));
     }
 
     /**
@@ -218,7 +229,15 @@ class BasePaymentGateway extends ModelAction
      */
     public function payFromPaymentProfile($order, $data = [])
     {
-        throw new SystemException('The payFromPaymentProfile() method is not supported by the payment gateway.');
+        throw new SystemException(lang('admin::lang.payments.alert_pay_from_payment_profile'));
+    }
+
+    //
+    // Payment Refunds
+    //
+
+    public function processRefundForm($data, $order, $paymentLog)
+    {
     }
 
     /**

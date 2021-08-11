@@ -1,17 +1,17 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Admin\Classes\PaymentGateways;
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Database\Traits\Purgeable;
 use Igniter\Flame\Database\Traits\Sortable;
 use Igniter\Flame\Exception\ApplicationException;
 use Igniter\Flame\Exception\ValidationException;
-use Lang;
-use Model;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * Payments Model Class
- *
- * @package Admin
  */
 class Payments_model extends Model
 {
@@ -38,7 +38,7 @@ class Payments_model extends Model
 
     public $timestamps = TRUE;
 
-    public $casts = [
+    protected $casts = [
         'data' => 'serialize',
         'status' => 'boolean',
         'is_default' => 'boolean',
@@ -138,7 +138,7 @@ class Payments_model extends Model
      *
      * @param string $class Class name
      *
-     * @return boolean
+     * @return bool
      */
     public function applyGatewayClass($class = null)
     {
@@ -242,6 +242,8 @@ class Payments_model extends Model
                 'name' => Lang::get($gateway['name']),
                 'description' => Lang::get($gateway['description']),
                 'class_name' => $gateway['class'],
+                'status' => $code === 'cod',
+                'is_default' => $code === 'cod',
             ]);
 
             $model->applyGatewayClass();
@@ -299,7 +301,7 @@ class Payments_model extends Model
         $profile = $this->findPaymentProfile($customer);
 
         if (!$profile) {
-            throw new ApplicationException('Customer payment profile not found!');
+            throw new ApplicationException(lang('admin::lang.customers.alert_customer_payment_profile_not_found'));
         }
 
         $gatewayObj->deletePaymentProfile($customer, $profile);

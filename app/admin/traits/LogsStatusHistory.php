@@ -2,6 +2,7 @@
 
 namespace Admin\Traits;
 
+use Admin\Models\Reservations_model;
 use Admin\Models\Status_history_model;
 
 trait LogsStatusHistory
@@ -13,15 +14,15 @@ trait LogsStatusHistory
         self::extend(function (self $model) {
             $model->relation['belongsTo']['status'] = ['Admin\Models\Statuses_model'];
             $model->relation['morphMany']['status_history'] = [
-                'Admin\Models\Status_history_model', 'name' => 'object',
+                'Admin\Models\Status_history_model', 'name' => 'object', 'delete' => TRUE,
             ];
 
-            $model->casts = array_merge($model->casts, [
+            $model->appends[] = 'status_name';
+
+            $model->addCasts([
                 'status_id' => 'integer',
                 'status_updated_at' => 'dateTime',
             ]);
-
-            $model->append(['status_name', 'status_color']);
         });
     }
 
@@ -51,6 +52,17 @@ trait LogsStatusHistory
             return FALSE;
 
         $this->save();
+
+        $this->reloadRelations();
+
+        if ($history->notify) {
+            $mailView = ($this instanceof Reservations_model)
+                ? 'admin::_mail.reservation_update' : 'admin::_mail.order_update';
+
+            $this->mailSend($mailView, 'customer');
+        }
+
+        $this->fireSystemEvent('admin.statusHistory.added', [$history]);
 
         return $history;
     }

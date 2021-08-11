@@ -1,6 +1,8 @@
-<?php namespace System\Controllers;
+<?php
 
-use AdminMenu;
+namespace System\Controllers;
+
+use Admin\Facades\AdminMenu;
 
 class Activities extends \Admin\Classes\AdminController
 {

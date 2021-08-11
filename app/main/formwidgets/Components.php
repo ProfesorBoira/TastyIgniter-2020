@@ -1,6 +1,9 @@
-<?php namespace Main\FormWidgets;
+<?php
+
+namespace Main\FormWidgets;
 
 use Admin\Classes\BaseFormWidget;
+use Admin\Traits\ValidatesForm;
 use Carbon\Carbon;
 use Exception;
 use Igniter\Flame\Exception\ApplicationException;
@@ -10,11 +13,11 @@ use System\Classes\ComponentManager as ComponentsManager;
 /**
  * Components
  * This widget is used by the system internally on the Layouts pages.
- *
- * @package Admin
  */
 class Components extends BaseFormWidget
 {
+    use ValidatesForm;
+
     protected static $onAddItemCalled;
 
     /**
@@ -60,7 +63,8 @@ class Components extends BaseFormWidget
     {
         $this->addJs('~/app/admin/formwidgets/recordeditor/assets/js/recordeditor.modal.js', 'recordeditor-modal-js');
 
-        $this->addJs('~/app/admin/formwidgets/repeater/assets/js/jquery-sortable.js', 'jquery-sortable-js');
+        $this->addJs('~/app/admin/formwidgets/repeater/assets/vendor/sortablejs/Sortable.min.js', 'sortable-js');
+        $this->addJs('~/app/admin/formwidgets/repeater/assets/vendor/sortablejs/jquery-sortable.js', 'jquery-sortable-js');
 
         $this->addCss('css/components.css', 'components-css');
         $this->addJs('js/components.js', 'components-js');
@@ -101,6 +105,12 @@ class Components extends BaseFormWidget
 
     public function onSaveRecord()
     {
+        if (ThemeManager::instance()->isLocked($this->model->code)) {
+            flash()->danger(lang('system::lang.themes.alert_theme_locked'))->important();
+
+            return;
+        }
+
         $isCreateContext = !strlen(post('recordId'));
         $codeAlias = $isCreateContext
             ? post($this->formField->arrayName.'[componentData][component]')
@@ -112,8 +122,7 @@ class Components extends BaseFormWidget
         if (!$template = $this->getTemplate())
             throw new ApplicationException('Template file not found');
 
-        $componentDefinition = $this->getComponentProperties($codeAlias, $isCreateContext);
-        $template->update(['settings' => $componentDefinition]);
+        $this->updateComponent($codeAlias, $isCreateContext, $template);
 
         flash()->success(sprintf(lang('admin::lang.alert_success'),
             'Component '.($isCreateContext ? 'added' : 'updated')))->now();
@@ -138,9 +147,9 @@ class Components extends BaseFormWidget
 
         $template = $this->getTemplate();
 
-        $attributes = $template->attributes;
+        $attributes = $template->getAttributes();
         unset($attributes[sprintf('[%s]', $codeAlias)]);
-        $template->attributes = $attributes;
+        $template->setRawAttributes($attributes);
 
         $template->mTime = Carbon::now()->timestamp;
         $template->save();
@@ -189,7 +198,7 @@ class Components extends BaseFormWidget
             [$code, $alias] = $this->getCodeAlias($codeAlias);
             $propertyValues = array_get((array)$this->getLoadValue(), $codeAlias, []);
             $componentObj = $this->manager->makeComponent($code, $alias, $propertyValues);
-            $componentObj->alias = $alias;
+            $componentObj->alias = $codeAlias;
         }
 
         return $componentObj;
@@ -261,7 +270,7 @@ class Components extends BaseFormWidget
         return ThemeManager::instance()->readFile($fileName, $this->model->code);
     }
 
-    protected function getComponentProperties($codeAlias, $isCreateContext)
+    protected function updateComponent($codeAlias, $isCreateContext, $template)
     {
         $componentObj = $this->makeComponentBy($codeAlias);
         $form = $this->makeComponentFormWidget('edit', $componentObj);
@@ -269,18 +278,30 @@ class Components extends BaseFormWidget
             ? $this->manager->getComponentPropertyValues($componentObj)
             : $form->getSaveData();
 
-        $properties['alias'] = $isCreateContext
-            ? $this->getUniqueAlias($properties['alias'])
-            : $codeAlias;
+        $properties = $this->convertComponentPropertyValues($properties);
 
-        $alias = sprintf('[%s]', array_get($properties, 'alias'));
-        $result[$alias] = array_map(function ($propertyValue) {
+        if ($isCreateContext) {
+            $alias = sprintf('[%s]', $this->getUniqueAlias($codeAlias));
+
+            return $template->update(['settings' => [$alias => $properties]]);
+        }
+
+        [$rules, $messages] = $this->manager->getComponentPropertyRules($componentObj);
+        $this->validate($properties, $rules, $messages);
+
+        $alias = sprintf('[%s]', $codeAlias);
+        $template->updateComponent($alias, $properties);
+    }
+
+    protected function convertComponentPropertyValues($properties)
+    {
+        $properties['alias'] = sprintf('[%s]', $properties['alias']);
+
+        return array_map(function ($propertyValue) {
             if (is_numeric($propertyValue))
                 $propertyValue += 0; // Convert to int or float
 
             return $propertyValue;
-        }, array_except($properties, 'alias'));
-
-        return $result;
+        }, $properties);
     }
 }

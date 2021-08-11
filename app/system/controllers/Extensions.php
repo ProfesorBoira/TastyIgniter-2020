@@ -1,15 +1,17 @@
-<?php namespace System\Controllers;
+<?php
 
+namespace System\Controllers;
+
+use Admin\Facades\AdminMenu;
+use Admin\Facades\Template;
 use Admin\Traits\WidgetMaker;
-use AdminMenu;
 use Exception;
 use Igniter\Flame\Exception\ApplicationException;
-use Request;
+use Igniter\Flame\Exception\SystemException;
+use Illuminate\Support\Facades\Request;
 use System\Classes\ExtensionManager;
 use System\Models\Extensions_model;
 use System\Models\Settings_model;
-use SystemException;
-use Template;
 
 class Extensions extends \Admin\Classes\AdminController
 {
@@ -24,13 +26,14 @@ class Extensions extends \Admin\Classes\AdminController
             'model' => 'System\Models\Extensions_model',
             'title' => 'lang:system::lang.extensions.text_title',
             'emptyMessage' => 'lang:system::lang.extensions.text_empty',
+            'pageLimit' => 50,
             'defaultSort' => ['name', 'ASC'],
             'showCheckboxes' => FALSE,
             'configFile' => 'extensions_model',
         ],
     ];
 
-    protected $requiredPermissions = 'Admin.Extensions';
+    protected $requiredPermissions = ['Admin.Extensions', 'Site.Settings'];
 
     /**
      * @var \Admin\Widgets\Form
@@ -51,6 +54,9 @@ class Extensions extends \Admin\Classes\AdminController
 
     public function index()
     {
+        if (!$this->getUser()->hasPermission('Admin.Extensions'))
+            throw new SystemException(lang('admin::lang.alert_user_restricted'));
+
         Extensions_model::syncAll();
 
         $this->asExtension('ListController')->index();
@@ -58,6 +64,9 @@ class Extensions extends \Admin\Classes\AdminController
 
     public function edit($action, $vendor = null, $extension = null, $context = null)
     {
+        if (!$this->getUser()->hasPermission('Site.Settings'))
+            throw new SystemException(lang('admin::lang.alert_user_restricted'));
+
         AdminMenu::setContext('settings', 'system');
 
         try {
@@ -86,16 +95,11 @@ class Extensions extends \Admin\Classes\AdminController
         }
     }
 
-    public function upload($context = null)
-    {
-        Template::setTitle(lang('system::lang.extensions.text_add_title'));
-        Template::setHeading(lang('system::lang.extensions.text_add_title'));
-
-        Template::setButton(lang('system::lang.extensions.button_browse'), ['class' => 'btn btn-default', 'href' => admin_url('updates/browse/extensions')]);
-    }
-
     public function delete($context, $extensionCode = null)
     {
+        if (!$this->getUser()->hasPermission('Admin.Extensions'))
+            throw new SystemException(lang('admin::lang.alert_user_restricted'));
+
         try {
             $pageTitle = lang('system::lang.extensions.text_delete_title');
             Template::setTitle($pageTitle);
@@ -108,7 +112,7 @@ class Extensions extends \Admin\Classes\AdminController
             // so delete from database
             if (!$extensionClass) {
                 $extensionManager->deleteExtension($extensionCode);
-                flash()->success(sprintf(lang('admin::lang.alert_success'), "Extension deleted "));
+                flash()->success(sprintf(lang('admin::lang.alert_success'), 'Extension deleted '));
 
                 return $this->redirectBack();
             }
@@ -209,27 +213,6 @@ class Extensions extends \Admin\Classes\AdminController
         return $this->refresh();
     }
 
-    public function upload_onUpload($context = null)
-    {
-        try {
-            $extensionManager = ExtensionManager::instance();
-
-            $this->validateUpload();
-
-            $zipFile = Request::file('extension_zip');
-            $extensionManager->extractExtension($zipFile->path());
-
-            flash()->success(sprintf(lang('admin::lang.alert_success'), 'Extension uploaded '));
-
-            return $this->redirect('extensions');
-        }
-        catch (Exception $ex) {
-            flash()->danger($ex->getMessage());
-
-            return $this->refresh();
-        }
-    }
-
     public function delete_onDelete($context = null, $extensionCode = null)
     {
         $manager = ExtensionManager::instance();
@@ -318,31 +301,6 @@ class Extensions extends \Admin\Classes\AdminController
             $rules = $form->config['rules'];
 
         return $this->validatePasses($form->getSaveData(), $rules);
-    }
-
-    protected function validateUpload()
-    {
-        $zipFile = Request::file('extension_zip');
-        if (!Request::hasFile('extension_zip') OR !$zipFile->isValid())
-            throw new SystemException("Please upload a zip file");
-
-        $name = $zipFile->getClientOriginalName();
-        $extension = $zipFile->extension();
-
-        if (preg_match('/\s/', $name))
-            throw new SystemException(lang('system::lang.extensions.error_upload_name'));
-
-        if ($extension != 'zip')
-            throw new SystemException(lang('system::lang.extensions.error_upload_type'));
-
-        if ($zipFile->getError())
-            throw new SystemException(lang('system::lang.extensions.error_php_upload').$zipFile->getErrorMessage());
-
-        $name = substr($name, -strlen($extension));
-        if (ExtensionManager::instance()->hasExtension($name))
-            throw new SystemException(lang('system::lang.extensions.error_extension_exists'));
-
-        return TRUE;
     }
 
     protected function checkDependencies($extension)

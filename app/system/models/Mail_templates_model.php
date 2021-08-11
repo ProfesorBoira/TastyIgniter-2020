@@ -1,14 +1,15 @@
-<?php namespace System\Models;
+<?php
 
-use File;
+namespace System\Models;
+
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Mail\MailParser;
-use Model;
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\View;
 use System\Classes\MailManager;
-use View;
 
 /**
  * Mail templates Model Class
- * @package System
  */
 class Mail_templates_model extends Model
 {
@@ -25,7 +26,7 @@ class Mail_templates_model extends Model
 
     protected $guarded = [];
 
-    public $casts = [
+    protected $casts = [
         'layout_id' => 'integer',
     ];
 
@@ -41,6 +42,11 @@ class Mail_templates_model extends Model
      * @var array The model table column to convert to dates on insert/update
      */
     public $timestamps = TRUE;
+
+    public static function getVariableOptions()
+    {
+        return MailManager::instance()->listRegisteredVariables();
+    }
 
     protected function afterFetch()
     {
@@ -153,7 +159,6 @@ class Mail_templates_model extends Model
     /**
      * @param callable $callback A callable function.
      * @deprecated see System\Classes\MailManager::registerCallback
-     *
      */
     public static function registerCallback(callable $callback)
     {

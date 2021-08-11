@@ -1,6 +1,8 @@
-<?php namespace System\Controllers;
+<?php
 
-use AdminMenu;
+namespace System\Controllers;
+
+use Admin\Facades\AdminMenu;
 
 class Currencies extends \Admin\Classes\AdminController
 {
@@ -27,11 +29,13 @@ class Currencies extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'currencies/edit/{currency_id}',
             'redirectClose' => 'currencies',
+            'redirectNew' => 'currencies/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'currencies/edit/{currency_id}',
             'redirectClose' => 'currencies',
+            'redirectNew' => 'currencies/create',
         ],
         'preview' => [
             'title' => 'lang:admin::lang.form.preview_title',
@@ -50,12 +54,5 @@ class Currencies extends \Admin\Classes\AdminController
         parent::__construct();
 
         AdminMenu::setContext('currencies', 'localisation');
-    }
-
-    public function index()
-    {
-        app('currency')->updateRates();
-
-        $this->asExtension('ListController')->index();
     }
 }

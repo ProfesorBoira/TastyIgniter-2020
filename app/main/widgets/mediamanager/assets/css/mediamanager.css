@@ -28,10 +28,8 @@
 Toolbar
 */
 .media-toolbar {
-	padding: 20px 0;
-}
-.media-modal .media-toolbar {
-	padding: 15px;
+	background-color: var(--gray-300);
+  padding: 20px;
 }
 /*
 Media list
@@ -112,7 +110,7 @@ Breadcrumb
 */
 
 .media-breadcrumb .breadcrumb {
-	background-color: var(--gray-400);
+	background-color: transparent;
 	margin-bottom: 0;
 	border-radius: 3px 3px 0 0;
 }
@@ -120,8 +118,7 @@ Breadcrumb
 Statusbar
 */
 .media-statusbar {
-	background-color: var(--gray-400);
-	border: 0 none;
+	border-top: 1px solid var(--gray-300);
 	padding: 10px 15px;
 }
 .media-statusbar .statusbar-text {
@@ -176,5 +173,11 @@ Uploader
 Folder Tree
 */
 .folder-tree {
-	min-width: 250px;
+  min-width: 250px;
+  max-height: 460px;
+  overflow: auto;
+}
+.folder-tree .list-group-item {
+  background-color: transparent;
+  border-radius: 3px;
 }

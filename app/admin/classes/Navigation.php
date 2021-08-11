@@ -1,6 +1,8 @@
-<?php namespace Admin\Classes;
+<?php
 
-use AdminAuth;
+namespace Admin\Classes;
+
+use Admin\Facades\AdminAuth;
 use Igniter\Flame\Traits\EventEmitter;
 use System\Classes\BaseExtension;
 use System\Classes\ExtensionManager;

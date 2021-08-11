@@ -2,14 +2,13 @@
 
 namespace System\Classes;
 
-use File;
+use Igniter\Flame\Exception\SystemException;
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
-use Lang;
-use SystemException;
 
 /**
  * Base Extension Class
- * @package System
  */
 class BaseExtension extends ServiceProvider
 {
@@ -25,7 +24,7 @@ class BaseExtension extends ServiceProvider
     public $autoload = [];
 
     /**
-     * @var boolean Determine if this extension should be loaded (false) or not (true).
+     * @var bool Determine if this extension should be loaded (false) or not (true).
      */
     public $disabled = FALSE;
 
@@ -176,22 +175,19 @@ class BaseExtension extends ServiceProvider
 
         $className = get_class($this);
         $configPath = realpath(dirname(File::fromClass($className)));
-        $configFile = $configPath.'/extension.json';
 
-        if (!File::exists($configFile))
+        if (File::exists($configFile = $configPath.'/extension.json')) {
+            $config = json_decode(File::get($configFile), TRUE) ?? [];
+        }
+        elseif (File::exists($configFile = $configPath.'/composer.json')) {
+            $config = $this->getConfigFromComposerJson($configFile);
+        }
+        else {
             throw new SystemException("The configuration file for extension <b>{$className}</b> does not exist. ".
                 'Create the file or override extensionMeta() method in the extension class.');
+        }
 
-        $config = json_decode(File::get($configFile), TRUE) ?? [];
-        foreach ([
-                     'code',
-                     'name',
-                     'description',
-                     'version',
-                     'author',
-                     'icon',
-                 ] as $item) {
-
+        foreach (['code', 'name', 'description', 'author', 'icon'] as $item) {
             if (!array_key_exists($item, $config)) {
                 throw new SystemException(sprintf(
                     Lang::get('system::lang.missing.config_key'),
@@ -201,5 +197,21 @@ class BaseExtension extends ServiceProvider
         }
 
         return $this->config = $config;
+    }
+
+    protected function getConfigFromComposerJson($configFile)
+    {
+        $composer = json_decode(File::get($configFile), TRUE) ?? [];
+
+        if (!$config = array_get($composer, 'extra.tastyigniter-extension', []))
+            return $config;
+
+        if ($description = array_get($composer, 'description'))
+            $config['description'] = $description;
+
+        if ($authors = array_get($composer, 'authors'))
+            $config['author'] = $authors[0]['name'];
+
+        return $config;
     }
 }

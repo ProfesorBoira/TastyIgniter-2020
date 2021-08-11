@@ -1,11 +1,12 @@
-<?php namespace System\Models;
+<?php
 
+namespace System\Models;
+
+use Igniter\Flame\Database\Model;
 use Igniter\Flame\Database\Traits\Sortable;
-use Model;
 
 /**
  * Countries Model Class
- * @package System
  */
 class Countries_model extends Model
 {
@@ -25,7 +26,7 @@ class Countries_model extends Model
 
     protected $guarded = [];
 
-    public $casts = [
+    protected $casts = [
         'status' => 'boolean',
         'priority' => 'integer',
     ];

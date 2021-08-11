@@ -1,4 +1,6 @@
-<?php namespace Admin\Models;
+<?php
+
+namespace Admin\Models;
 
 use Admin\Traits\HasDeliveryAreas;
 use Admin\Traits\HasWorkingHours;
@@ -10,16 +12,14 @@ use Igniter\Flame\Location\Models\AbstractLocation;
 
 /**
  * Locations Model Class
- *
- * @package Admin
  */
 class Locations_model extends AbstractLocation
 {
     use HasWorkingHours;
     use HasDeliveryAreas;
     use HasPermalink;
-    use Purgeable;
     use HasMedia;
+    use Purgeable;
 
     const LOCATION_CONTEXT_SINGLE = 'single';
 
@@ -29,17 +29,10 @@ class Locations_model extends AbstractLocation
 
     protected $hidden = ['options'];
 
-    public $casts = [
+    protected $casts = [
         'location_country_id' => 'integer',
         'location_lat' => 'double',
         'location_lng' => 'double',
-        'offer_delivery' => 'boolean',
-        'offer_collection' => 'boolean',
-        'delivery_time' => 'integer',
-        'collection_time' => 'integer',
-        'last_order_time' => 'integer',
-        'reservation_time_interval' => 'integer',
-        'reservation_stay_time' => 'integer',
         'location_status' => 'boolean',
         'options' => 'serialize',
     ];
@@ -48,17 +41,16 @@ class Locations_model extends AbstractLocation
         'hasMany' => [
             'working_hours' => ['Admin\Models\Working_hours_model', 'delete' => TRUE],
             'delivery_areas' => ['Admin\Models\Location_areas_model', 'delete' => TRUE],
-            'reviews' => ['Admin\Models\Reviews_model', 'delete' => TRUE],
         ],
         'belongsTo' => [
             'country' => ['System\Models\Countries_model', 'otherKey' => 'country_id', 'foreignKey' => 'location_country_id'],
         ],
-        'belongsToMany' => [
-            'tables' => ['Admin\Models\Tables_model', 'table' => 'location_tables'],
+        'morphedByMany' => [
+            'staffs' => ['Admin\Models\Staffs_model', 'name' => 'locationable'],
         ],
     ];
 
-    protected $purgeable = ['tables', 'delivery_areas'];
+    protected $purgeable = ['delivery_areas'];
 
     public $permalinkable = [
         'permalink_slug' => [
@@ -74,7 +66,6 @@ class Locations_model extends AbstractLocation
 
     protected static $allowedSortingColumns = [
         'distance asc', 'distance desc',
-        'reviews_count asc', 'reviews_count desc',
         'location_id asc', 'location_id desc',
         'location_name asc', 'location_name desc',
     ];
@@ -103,33 +94,22 @@ class Locations_model extends AbstractLocation
             AND $model->delivery_areas->where('is_default', 1)->count() > 0;
     }
 
-    public function getWeekDaysOptions()
+    public static function addSortingColumns($newColumns)
     {
-        return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        self::$allowedSortingColumns = array_merge(self::$allowedSortingColumns, $newColumns);
     }
 
     //
     // Events
     //
 
-    protected function afterFetch()
+    protected function beforeDelete()
     {
-        $this->parseOptionsValue();
-    }
-
-    protected function beforeSave()
-    {
-        $this->parseOptionsValue();
     }
 
     protected function afterSave()
     {
         $this->performAfterSave();
-    }
-
-    protected function beforeDelete()
-    {
-        Location_tables_model::where('location_id', $this->getKey())->delete();
     }
 
     //
@@ -158,12 +138,15 @@ class Locations_model extends AbstractLocation
         ], $options));
 
         if ($latitude AND $longitude) {
-            $query->select('*');
             $query->selectDistance($latitude, $longitude);
         }
 
-        $searchableFields = ['location_name', 'location_address_1', 'location_address_2', 'location_city',
-            'location_state', 'location_postcode', 'description'];
+        $searchableFields = [
+            'location_name', 'location_address_1',
+            'location_address_2', 'location_city',
+            'location_state', 'location_postcode',
+            'description',
+        ];
 
         if (!is_array($sort)) {
             $sort = [$sort];
@@ -173,7 +156,7 @@ class Locations_model extends AbstractLocation
             if (in_array($_sort, self::$allowedSortingColumns)) {
                 $parts = explode(' ', $_sort);
                 if (count($parts) < 2) {
-                    array_push($parts, 'desc');
+                    $parts[] = 'desc';
                 }
                 [$sortField, $sortDirection] = $parts;
                 $query->orderBy($sortField, $sortDirection);
@@ -199,12 +182,12 @@ class Locations_model extends AbstractLocation
 
     public function getDeliveryTimeAttribute($value)
     {
-        return (int)$value;
+        return (int)$this->getOption('delivery_time_interval');
     }
 
     public function getCollectionTimeAttribute($value)
     {
-        return (int)$value;
+        return (int)$this->getOption('collection_time_interval');
     }
 
     public function getFutureOrdersAttribute($value)
@@ -214,7 +197,15 @@ class Locations_model extends AbstractLocation
 
     public function getReservationTimeIntervalAttribute($value)
     {
-        return (int)$value;
+        return (int)$this->getOption('reservation_time_interval');
+    }
+
+    public function setOptionsAttribute($value)
+    {
+        if (is_array($value)) {
+            $options = @unserialize($this->attributes['options']) ?: [];
+            $this->attributes['options'] = @serialize(array_merge($options ?? [], $value));
+        }
     }
 
     //
@@ -229,6 +220,18 @@ class Locations_model extends AbstractLocation
         $this->url = site_url($this->permalink_slug.$suffix);
     }
 
+    public function getAddress()
+    {
+        $country = optional($this->country);
+
+        return array_merge(parent::getAddress(), [
+            'country' => $country->country_name,
+            'iso_code_2' => $country->iso_code_2,
+            'iso_code_3' => $country->iso_code_3,
+            'format' => $country->format,
+        ]);
+    }
+
     public function hasGallery()
     {
         return $this->hasMedia('gallery');
@@ -240,19 +243,6 @@ class Locations_model extends AbstractLocation
         $gallery['images'] = $this->getMedia('gallery');
 
         return $gallery;
-    }
-
-    public function parseOptionsValue()
-    {
-        $value = @unserialize($this->attributes['options']) ?: [];
-
-        $this->parseHoursFromOptions($value);
-
-        $this->parseAreasFromOptions($value);
-
-        $this->attributes['options'] = @serialize($value);
-
-        return $value;
     }
 
     public function listAvailablePayments()
@@ -275,17 +265,8 @@ class Locations_model extends AbstractLocation
     {
         $this->restorePurgedValues();
 
-        if (array_key_exists('hours', $this->options)) {
-            $this->addOpeningHours($this->options['hours']);
-        }
-
-        if (array_key_exists('delivery_areas', $this->attributes)) {
-            $this->addLocationAreas($this->attributes['delivery_areas']);
-        }
-
-        if (array_key_exists('tables', $this->attributes)) {
-            $this->addLocationTables($this->attributes['tables']);
-        }
+        if (array_key_exists('delivery_areas', $this->attributes))
+            $this->addLocationAreas((array)$this->attributes['delivery_areas']);
     }
 
     public function makeDefault()
@@ -296,8 +277,7 @@ class Locations_model extends AbstractLocation
             )]);
         }
 
-        params('default_location_id', $this->getKey());
-        params()->save();
+        params()->set(['default_location_id' => $this->getKey()])->save();
     }
 
     /**
@@ -305,7 +285,7 @@ class Locations_model extends AbstractLocation
      *
      * @param string $locationId
      *
-     * @return bool|int
+     * @return bool|null
      */
     public static function updateDefault($locationId)
     {
@@ -330,17 +310,5 @@ class Locations_model extends AbstractLocation
         }
 
         return self::$defaultLocation = $defaultLocation;
-    }
-
-    /**
-     * Create a new or update existing location tables
-     *
-     * @param array $tables
-     *
-     * @return bool
-     */
-    public function addLocationTables($tables = [])
-    {
-        return $this->tables()->sync($tables);
     }
 }

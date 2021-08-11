@@ -60,7 +60,7 @@ if (!function_exists('restaurant_url')) {
      */
     function restaurant_url($uri = null, array $params = [])
     {
-        return page_url($uri, $params);
+        return controller()->pageUrl($uri, $params);
     }
 }
 
@@ -134,7 +134,7 @@ if (!function_exists('mdate')) {
         }
 
         if (is_null($format))
-            $format = setting('date_format', config('system.dateFormat'));
+            $format = lang('system::lang.php.date_format');
 
         if (is_null($time))
             return null;
@@ -153,7 +153,7 @@ if (!function_exists('mdate')) {
     }
 }
 
-if (!function_exists('mdate_to_moment_js_format')) {
+if (!function_exists('convert_php_to_moment_js_format')) {
     /**
      * Convert PHP Date formats to Moment JS Date Formats
      *
@@ -241,20 +241,20 @@ if (!function_exists('day_elapsed')) {
     function day_elapsed($datetime, $full = TRUE)
     {
         $datetime = make_carbon($datetime);
-        $time = $datetime->format('H:i');
-        $date = $datetime->format('j M Y');
+        $time = $datetime->format(lang('system::lang.php.time_format'));
+        $date = $datetime->format(lang('system::lang.php.date_format'));
 
         if ($datetime->isToday()) {
-            $date = 'Today';
+            $date = lang('system::lang.date.today');
         }
         elseif ($datetime->isYesterday()) {
-            $date = 'Yesterday';
+            $date = lang('system::lang.date.yesterday');
         }
         elseif ($datetime->isTomorrow()) {
-            $date = 'Tomorrow';
+            $date = lang('system::lang.date.tomorrow');
         }
 
-        return $full ? $date.' at '.$time : $date;
+        return $full ? sprintf(lang('system::lang.date.full'), $date, $time) : $date;
     }
 }
 
@@ -363,7 +363,7 @@ if (!function_exists('is_single_location')) {
      */
     function is_single_location()
     {
-        return (setting('site_location_mode') === \Admin\Models\Locations_model::LOCATION_CONTEXT_SINGLE);
+        return config('system.locationMode') === \Admin\Models\Locations_model::LOCATION_CONTEXT_SINGLE;
     }
 }
 
@@ -425,7 +425,6 @@ if (!function_exists('name_to_id')) {
 }
 
 if (!function_exists('name_to_array')) {
-
     /**
      * Converts a HTML named array string to a PHP array. Empty values are removed.
      * HTML: user[location][city]
@@ -489,7 +488,6 @@ if (!function_exists('convert_underscore_to_camelcase')) {
      * Current URL
      * Converts a string_with_underscore into StringWithCamelCase. Strings can be passed via the
      * first parameter either as a string or an array.
-     * @access    public
      * @return    string
      */
     function convert_underscore_to_camelcase($string = '')
@@ -501,7 +499,6 @@ if (!function_exists('convert_underscore_to_camelcase')) {
 if (!function_exists('contains_substring')) {
     /**
      * Determine if a given string contains a given substring.
-     * @access    public
      *
      * @param string $haystack
      * @param string|array $needles
@@ -523,7 +520,6 @@ if (!function_exists('contains_substring')) {
 if (!function_exists('is_lang_key')) {
     /**
      * Determine if a given string matches a language key.
-     * @access    public
      *
      * @param string $line
      *
@@ -577,3 +573,15 @@ if (!function_exists('generate_extension_icon')) {
     }
 }
 
+if (!function_exists('array_replace_key')) {
+    function array_replace_key($array, $oldKey, $newKey)
+    {
+        $keys = array_keys($array);
+
+        if (($keyIndex = array_search($oldKey, $keys, TRUE)) !== FALSE) {
+            $keys[$keyIndex] = $newKey;
+        }
+
+        return array_combine($keys, array_values($array));
+    }
+}

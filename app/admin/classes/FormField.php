@@ -1,15 +1,15 @@
-<?php namespace Admin\Classes;
+<?php
 
-use Html;
-use Model;
+namespace Admin\Classes;
+
+use Igniter\Flame\Html\HtmlFacade as Html;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Form Field definition
  * A translation of the form field configuration
  *
  * Adapted from october\backend\classes\FormField
- *
- * @package Admin
  */
 class FormField
 {

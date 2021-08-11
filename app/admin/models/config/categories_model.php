@@ -1,5 +1,9 @@
 <?php
 $config['list']['filter'] = [
+    'search' => [
+        'prompt' => 'lang:admin::lang.categories.text_filter_search',
+        'mode' => 'all',
+    ],
     'scopes' => [
         'location' => [
             'label' => 'lang:admin::lang.text_filter_location',
@@ -7,10 +11,10 @@ $config['list']['filter'] = [
             'scope' => 'whereHasLocation',
             'modelClass' => 'Admin\Models\Locations_model',
             'nameFrom' => 'location_name',
-            'locationAware' => 'hide',
+            'locationAware' => TRUE,
         ],
         'status' => [
-            'label' => 'lang:admin::lang.categories.text_filter_status',
+            'label' => 'lang:admin::lang.text_filter_status',
             'type' => 'switch', // checkbox, switch, date, daterange
             'conditions' => 'status = :filtered',
         ],
@@ -60,7 +64,7 @@ $config['list']['columns'] = [
         'type' => 'text',
         'relation' => 'locations',
         'select' => 'location_name',
-        'locationAware' => 'hide',
+        'locationAware' => TRUE,
         'invisible' => TRUE,
     ],
     'priority' => [
@@ -80,19 +84,17 @@ $config['list']['columns'] = [
 
 $config['form']['toolbar'] = [
     'buttons' => [
+        'back' => [
+            'label' => 'lang:admin::lang.button_icon_back',
+            'class' => 'btn btn-default',
+            'href' => 'categories',
+        ],
         'save' => [
             'label' => 'lang:admin::lang.button_save',
             'context' => ['create', 'edit'],
+            'partial' => 'form/toolbar_save_button',
             'class' => 'btn btn-primary',
             'data-request' => 'onSave',
-            'data-progress-indicator' => 'admin::lang.text_saving',
-        ],
-        'saveClose' => [
-            'label' => 'lang:admin::lang.button_save_close',
-            'context' => ['create', 'edit'],
-            'class' => 'btn btn-default',
-            'data-request' => 'onSave',
-            'data-request-data' => 'close:1',
             'data-progress-indicator' => 'admin::lang.text_saving',
         ],
         'delete' => [
@@ -131,7 +133,6 @@ $config['form']['fields'] = [
         'span' => 'right',
         'valueFrom' => 'locations',
         'nameFrom' => 'location_name',
-        'locationAware' => 'hide',
     ],
     'priority' => [
         'label' => 'lang:admin::lang.categories.label_priority',

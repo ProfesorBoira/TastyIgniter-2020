@@ -1,14 +1,17 @@
-<?php namespace Admin\FormWidgets;
+<?php
+
+namespace Admin\FormWidgets;
 
 use Admin\Classes\BaseFormWidget;
 use Admin\Classes\FormField;
+use Admin\Traits\ValidatesForm;
 use Admin\Widgets\Form;
 use Igniter\Flame\Database\Attach\HasMedia;
 use Igniter\Flame\Database\Attach\Media;
 use Igniter\Flame\Exception\ApplicationException;
+use Igniter\Flame\Exception\SystemException;
 use Illuminate\Support\Collection;
 use Main\Classes\MediaLibrary;
-use SystemException;
 
 /**
  * Media Finder
@@ -21,11 +24,11 @@ use SystemException;
  *        type: mediafinder
  *        mode: inline
  *        prompt: Click the %s button to find a user
- *
- * @package Admin
  */
 class MediaFinder extends BaseFormWidget
 {
+    use ValidatesForm;
+
     //
     // Configurable properties
     //
@@ -52,7 +55,7 @@ class MediaFinder extends BaseFormWidget
     ];
 
     /**
-     * @var boolean Automatically attaches the chosen file if the parent record exists. Defaults to false.
+     * @var bool Automatically attaches the chosen file if the parent record exists. Defaults to false.
      */
     public $useAttachment = FALSE;
 
@@ -98,7 +101,6 @@ class MediaFinder extends BaseFormWidget
     public function loadAssets()
     {
         if ($this->getConfig('useAttachment')) {
-            $this->addJs('../../repeater/assets/js/jquery-sortable.js', 'jquery-sortable-js');
             $this->addJs('../../repeater/assets/js/repeater.js', 'repeater-js');
         }
 
@@ -170,13 +172,15 @@ class MediaFinder extends BaseFormWidget
         if (!in_array(HasMedia::class, class_uses_recursive(get_class($this->model))))
             return;
 
-        $configData = post('media.custom_properties', []);
-
         $media = $this->model->findMedia($mediaId);
 
-        $media->setCustomProperty('title', array_get($configData, 'title'));
-        $media->setCustomProperty('description', array_get($configData, 'description'));
-        $media->setCustomProperty('extras', array_get($configData, 'extras', []));
+        $form = $this->makeAttachmentConfigFormWidget($media);
+
+        $this->validateFormWidget($form, $configData = $form->getSaveData());
+
+        $media->setCustomProperty('title', array_get($configData, 'custom_properties.title'));
+        $media->setCustomProperty('description', array_get($configData, 'custom_properties.description'));
+        $media->setCustomProperty('extras', array_get($configData, 'custom_properties.extras', []));
 
         $media->save();
 
@@ -206,11 +210,11 @@ class MediaFinder extends BaseFormWidget
 
         $items = post('items');
         if (!is_array($items))
-            throw new ApplicationException('Select an item to attach');
+            throw new ApplicationException(lang('main::lang.media_manager.alert_select_item_to_attach'));
 
         $model = $this->model;
         if (!$model->exists)
-            throw new ApplicationException('You can only attach media to a saved form');
+            throw new ApplicationException(lang('main::lang.media_manager.alert_only_attach_to_saved'));
 
         $manager = MediaLibrary::instance();
         foreach ($items as &$item) {
@@ -295,6 +299,13 @@ class MediaFinder extends BaseFormWidget
                         ],
                     ],
                 ],
+            ],
+            'rules' => [
+                ['custom_properties.title', 'lang:main::lang.media_manager.label_attachment_title', 'string|max:128'],
+                ['custom_properties.description', 'lang:main::lang.media_manager.label_attachment_description', 'string|max:255'],
+                ['custom_properties.extras', 'lang:main::lang.media_manager.label_attachment_properties', 'array'],
+                ['custom_properties.extras.*.key', 'lang:main::lang.media_manager.label_attachment_property_key', 'string|max:128'],
+                ['custom_properties.extras.*.value', 'lang:main::lang.media_manager.label_attachment_property_value', 'string|max:128'],
             ],
         ];
     }

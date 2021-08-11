@@ -1,8 +1,10 @@
-<?php namespace Admin\Controllers;
+<?php
+
+namespace Admin\Controllers;
 
 use Admin\Classes\PaymentGateways;
+use Admin\Facades\AdminMenu;
 use Admin\Models\Payments_model;
-use AdminMenu;
 use Exception;
 use Igniter\Flame\Database\Model;
 use Igniter\Flame\Exception\ApplicationException;
@@ -31,11 +33,13 @@ class Payments extends \Admin\Classes\AdminController
             'title' => 'lang:admin::lang.form.create_title',
             'redirect' => 'payments/edit/{code}',
             'redirectClose' => 'payments',
+            'redirectNew' => 'payments/create',
         ],
         'edit' => [
             'title' => 'lang:admin::lang.form.edit_title',
             'redirect' => 'payments/edit/{code}',
             'redirectClose' => 'payments',
+            'redirectNew' => 'payments/create',
         ],
         'delete' => [
             'redirect' => 'payments',
@@ -98,7 +102,7 @@ class Payments extends \Admin\Classes\AdminController
         }
 
         if (!$gateway = PaymentGateways::instance()->findGateway($code)) {
-            throw new Exception('Unable to find payment gateway with code '.$code);
+            throw new Exception(sprintf(lang('admin::lang.payments.alert_code_not_found'), $code));
         }
 
         return $this->gateway = $gateway;
@@ -129,7 +133,7 @@ class Payments extends \Admin\Classes\AdminController
     public function formBeforeCreate($model)
     {
         if (!strlen($code = post('Payment.payment')))
-            throw new ApplicationException('Invalid payment gateway code selected');
+            throw new ApplicationException(lang('admin::lang.payments.alert_invalid_code'));
 
         $paymentGateway = PaymentGateways::instance()->findGateway($code);
 
@@ -143,13 +147,13 @@ class Payments extends \Admin\Classes\AdminController
             ['name', 'lang:admin::lang.label_name', 'required|min:2|max:128'],
             ['code', 'lang:admin::lang.payments.label_code', 'sometimes|required|alpha_dash|unique:payments,code'],
             ['priority', 'lang:admin::lang.payments.label_priority', 'required|integer'],
-            ['description', 'lang:admin::lang.label_description', 'required|max:255'],
+            ['description', 'lang:admin::lang.label_description', 'max:255'],
             ['is_default', 'lang:admin::lang.payments.label_default', 'required|integer'],
             ['status', 'lang:admin::lang.label_status', 'required|integer'],
         ];
 
-        if (isset($form->config['rules']))
-            $rules = array_merge($rules, $form->config['rules']);
+        if ($form->model->exists AND ($mergeRules = $form->model->getConfigRules()))
+            array_push($rules, ...$mergeRules);
 
         return $this->validatePasses($form->getSaveData(), $rules);
     }

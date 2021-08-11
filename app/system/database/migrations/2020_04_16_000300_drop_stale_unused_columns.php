@@ -1,10 +1,12 @@
-<?php namespace System\Database\Migrations;
+<?php
+
+namespace System\Database\Migrations;
 
 use Carbon\Carbon;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
-use Schema;
+use Illuminate\Support\Facades\Schema;
 
 class DropStaleUnusedColumns extends Migration
 {
@@ -29,6 +31,8 @@ class DropStaleUnusedColumns extends Migration
         DB::table('extensions')->where('type', '!=', 'module')->delete();
 
         Schema::table('extensions', function (Blueprint $table) {
+            $table->dropUnique('type');
+            $table->unique('name');
             $table->dropColumn(['type', 'data', 'serialized', 'status', 'title']);
         });
     }
@@ -62,7 +66,6 @@ class DropStaleUnusedColumns extends Migration
             return;
 
         DB::table('extensions')->where('type', 'payment')->get()->each(function ($model) {
-
             $code = str_replace(['-', '_'], '', $model->name);
             DB::table('payments')->insert([
                 'name' => $model->title,

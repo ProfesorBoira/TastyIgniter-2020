@@ -1,8 +1,10 @@
-<?php namespace System\Helpers;
+<?php
 
-use App;
-use Cache;
-use File;
+namespace System\Helpers;
+
+use Igniter\Flame\Support\Facades\File;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cache;
 
 class CacheHelper
 {
